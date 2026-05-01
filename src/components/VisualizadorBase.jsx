@@ -1,5 +1,5 @@
 // src/components/VisualizadorBase.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from './Card';
 import { Spinner } from './Spinner';
@@ -25,6 +25,7 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
   const [pagina, setPagina] = useState(1);
   const itensPorPagina = 20;
   const navigate = useNavigate();
+  const reqIdRef = useRef(0);
 
   if (!base?.id) {
     return (
@@ -106,9 +107,12 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
         qs.set("mes_ref", mesRefAnterior()); // Mês anterior
       }
       const url = `${API}/api/bases/${base.id}/clientes${qs.toString() ? `?${qs.toString()}` : ""}`;
+      const reqId = ++reqIdRef.current;
       const r = await fetch(url, { headers: authHeaders() });
       const data = await r.json();
-      setClientes(data);
+      if (reqId === reqIdRef.current) {
+        setClientes(data);
+      }
     } catch (e) {
       console.error(e);
     }
