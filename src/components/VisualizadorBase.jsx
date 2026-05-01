@@ -240,14 +240,8 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
   const clientesProcessados = clientes.map(c => {
     const mesRef = modoMes === "corrente" ? mesRefCorrente() : mesRefAnterior();
     
-    let statusCalculado;
-    if (modoMes === "passado") {
-      // No modo passado, usa o cálculo histórico
-      statusCalculado = calcularStatusHistorico(c, mesRef);
-    } else {
-      // No modo corrente, usa o status que veio da API
-      statusCalculado = c.status_calculado || c.status;
-    }
+    // Usa sempre o status_calculado que veio da API (já calculado corretamente no backend)
+    const statusCalculado = c.status_calculado || c.status;
     
     return {
       ...c,
