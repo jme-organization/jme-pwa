@@ -94,14 +94,15 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
     return 'pendente';
   };
 
-  const carregar = useCallback(async (silencioso = false) => {
+  const carregar = useCallback(async (silencioso = false, modoMesOverride = null) => {
     if (!base?.id) return;
     if (!silencioso) setLoading(true);
+    const modoAtual = modoMesOverride ?? modoMes;
     try {
       const qs = new URLSearchParams();
-      if (modoMes === "corrente") {
+      if (modoAtual === "corrente") {
         qs.set("mes_ref", mesRefCorrente()); // Mês atual
-      } else if (modoMes === "passado") {
+      } else if (modoAtual === "passado") {
         qs.set("mes_ref", mesRefAnterior()); // Mês anterior
       }
       const url = `${API}/api/bases/${base.id}/clientes${qs.toString() ? `?${qs.toString()}` : ""}`;
@@ -338,7 +339,7 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
 
         <div style={{ display: 'flex', gap: 4, background: '#1a1d2e', padding: 4, borderRadius: 8 }}>
           <button
-            onClick={() => setModoMes("corrente")}
+            onClick={() => { setModoMes("corrente"); carregar(false, "corrente"); }}
             style={{
               padding: '6px 12px',
               borderRadius: 6,
@@ -353,7 +354,7 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
             📅 Mês corrente
           </button>
           <button
-            onClick={() => setModoMes("passado")}
+            onClick={() => { setModoMes("passado"); carregar(false, "passado"); }}
             style={{
               padding: '6px 12px',
               borderRadius: 6,
