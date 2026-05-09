@@ -17,15 +17,31 @@ Todas as alterações notáveis deste projeto serão documentadas neste arquivo.
   - Estilo amarelo de aviso com ícone de lixeira
   - Confirmação via `confirm()` antes de executar
 
+- Detecção de disparo já realizado na página de cobranças
+  - Modal exibe aviso amarelo quando `jaDisparado` é true
+  - Pergunta ao usuário se deseja disparar novamente mesmo assim
+  - Parâmetro `forcar` enviado no body do POST para `/api/cobrar/manual`
+
 ### Alterado
 - `src/pages/cobranca.jsx`:
   - Estado `modalConfirm` adicionado para controle do modal
   - Função `disparar` refatorada em `pedirConfirmacao` e `confirmarDisparo`
   - `onClick` do botão alterado para `pedirConfirmacao`
+  - Array `TIPOS_COBRANCA` atualizado para incluir 6 tipos de cobrança
+  - Função `confirmarDisparo` agora aceita parâmetro `forcando`
+  - Tratamento de resposta `jaDisparado` do backend
 
 - `src/pages/qr.jsx`:
   - Estado `resetando` adicionado para controle do botão de reset
   - Função `resetarSessao` adicionada para deletar sessão do WhatsApp
+
+### Tipos de Cobrança Atualizados
+- `lembrete` - Lembrete (D-1)
+- `atraso` - Atraso
+- `atraso_final` - Atraso Final
+- `limite` - Limite (suspensão hoje) **[NOVO]**
+- `reconquista` - Reconquista
+- `reconquista_final` - Reconquista Final
 
 ### Documentação
 - Criada pasta `/docs` com documentação do projeto

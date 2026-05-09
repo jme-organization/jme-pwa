@@ -52,6 +52,16 @@ Painel admin React do JME-BOT. Frontend PWA com Vite, React Router DOM e Rechart
 - Adicionado estado `modalConfirm` para controle do modal
 - Função `disparar` dividida em `pedirConfirmacao` e `confirmarDisparo`
 - Modal com design vermelho de alerta, exibindo data e tipo antes de confirmar disparo
+- **Atualizado array `TIPOS_COBRANCA` para incluir 6 tipos:**
+  - `""` - Automático (por data)
+  - `"lembrete"` - Lembrete (D-1)
+  - `"atraso"` - Atraso
+  - `"atraso_final"` - Atraso Final
+  - `"limite"` - Limite (suspensão hoje)
+  - `"reconquista"` - Reconquista
+  - `"reconquista_final"` - Reconquista Final
+- **Modal de confirmação agora detecta `jaDisparado` e exibe aviso amarelo**
+- **Função `confirmarDisparo` atualizada com parâmetro `forcando` e envio de `forcar` no body**
 
 ### src/pages/qr.jsx
 - Adicionado botão "Resetar Sessão do WhatsApp" quando offline

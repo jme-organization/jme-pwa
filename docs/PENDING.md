@@ -7,6 +7,7 @@ Tarefas pendentes e melhorias planejadas para o JME-BOT Frontend.
 ### Segurança
 - [ ] Substituir todos os `window.confirm()` restantes por modais customizados
   - `src/pages/qr.jsx` - função `desconectar` ainda usa `confirm()`
+  - `src/pages/qr.jsx` - função `resetarSessao` ainda usa `confirm()`
   - Verificar outras páginas que possam ter `confirm()` ou `alert()`
 
 ### UX/UI
@@ -55,3 +56,10 @@ Tarefas pendentes e melhorias planejadas para o JME-BOT Frontend.
 - Este documento deve ser atualizado regularmente
 - Tarefas concluídas devem ser movidas para CHANGELOG.md
 - Prioridades podem ser ajustadas conforme necessidade do negócio
+
+## Concluído Recentemente (2026-05-09)
+
+- [x] Modal de confirmação customizado na página de cobranças
+- [x] Botão "Resetar Sessão do WhatsApp" na página QR
+- [x] Atualização de tipos de cobrança para incluir "limite"
+- [x] Detecção de disparo já realizado com aviso no modal

@@ -75,7 +75,7 @@ const pedirConfirmacao = () => {
   setModalConfirm({ /* dados */ });
 };
 
-const confirmarAcao = async () => {
+const confirmarAcao = async (parametro = false) => {
   setModalConfirm(null);
   // executar ação
 };
@@ -84,6 +84,31 @@ const confirmarAcao = async () => {
 {modalConfirm && (
   <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', ... }}>
     {/* Conteúdo do modal */}
+  </div>
+)}
+```
+
+### Tratamento de Respostas com jaDisparado
+Quando o backend retorna que um disparo já foi realizado:
+
+```javascript
+const confirmarDisparo = async (forcando = false) => {
+  // ...
+  const json = await r.json();
+  if (json.ok) {
+    // Sucesso
+  } else if (json.jaDisparado) {
+    setModalConfirm({ data, tipo, jaDisparado: true, aviso: json.aviso });
+  } else {
+    // Erro
+  }
+};
+
+// No modal:
+{modalConfirm?.jaDisparado && (
+  <div style={{ background: 'rgba(251,191,36,.1)', ... }}>
+    ⚠️ {modalConfirm.aviso}<br/>
+    <strong>Deseja disparar novamente mesmo assim?</strong>
   </div>
 )}
 ```
@@ -121,6 +146,8 @@ const confirmarAcao = async () => {
 ### Cobranças
 - `GET /api/cobrar/agenda` - Agenda de cobranças
 - `POST /api/cobrar/manual` - Disparo manual
+  - Body: `{ data, tipo?, forcar? }`
+  - Resposta: `{ ok, jaDisparado?, aviso?, erro? }`
 - `GET /api/logs/cobrancas?limit=20` - Logs de cobranças
 
 ### WhatsApp
@@ -130,6 +157,30 @@ const confirmarAcao = async () => {
 
 ### Status
 - `GET /api/status-stream` - SSE para atualizações em tempo real
+
+## Tipos de Cobrança
+
+| Tipo | Descrição | Timing |
+|------|-----------|--------|
+| `lembrete` | Lembrete (D-1) | D-1 |
+| `atraso` | Atraso | D+3 |
+| `atraso_final` | Atraso Final | D+5 |
+| `limite` | Limite (suspensão hoje) | D+? |
+| `reconquista` | Reconquista | D+7 |
+| `reconquista_final` | Reconquista Final | D+10 |
+
+**Array TIPOS_COBRANCA em `src/pages/cobranca.jsx`:**
+```javascript
+const TIPOS_COBRANCA = [
+  { value: "", label: "🔄 Automático (por data)" },
+  { value: "lembrete", label: "🔔 Lembrete (D-1)" },
+  { value: "atraso", label: "⏰ Atraso" },
+  { value: "atraso_final", label: "⚠️ Atraso Final" },
+  { value: "limite", label: "⛔ Limite (suspensão hoje)" },
+  { value: "reconquista", label: "📞 Reconquista" },
+  { value: "reconquista_final", label: "🚨 Reconquista Final" },
+];
+```
 
 ## Checklist para Nova Funcionalidade
 
@@ -177,6 +228,7 @@ O projeto é deployado automaticamente na Vercel via Git. Configurações em `ve
 - `docs/CHANGELOG.md` - Histórico de alterações
 - `docs/API.md` - Documentação de APIs
 - `docs/PENDING.md` - Tarefas pendentes
+- `docs/PATTERNS.md` - Padrões e convenções
 - `CLAUDE.md` - Instruções para Claude Code
 
 ## Notas Importantes
@@ -186,6 +238,7 @@ O projeto é deployado automaticamente na Vercel via Git. Configurações em `ve
 3. **Modais:** Nunca usar `window.confirm()` ou `alert()`
 4. **Estilos:** Preferir estilos inline para componentes simples
 5. **Responsividade:** Testar em mobile e desktop
+6. **Tipos de cobrança:** Manter sincronizado com backend (6 tipos atuais)
 
 ## Handoff Rápido
 
@@ -197,4 +250,17 @@ Ao iniciar uma nova sessão, informe:
 4. Se há dependências do backend que precisam ser consideradas
 
 Exemplo:
-> "Estou trabalhando na página de cobranças. Modifiquei `src/pages/cobranca.jsx` para substituir o window.confirm por um modal customizado. O endpoint `/api/cobrar/manual` está funcionando corretamente."
+> "Estou trabalhando na página de cobranças. Modifiquei `src/pages/cobranca.jsx` para substituir o window.confirm por um modal customizado. O endpoint `/api/cobrar/manual` está funcionando corretamente. Adicionei suporte ao tipo 'limite' e detecção de disparos já realizados."
+
+## Estado Atual (2026-05-09)
+
+### Recentes
+- Modal de confirmação customizado em `cobranca.jsx`
+- Botão "Resetar Sessão do WhatsApp" em `qr.jsx`
+- Tipos de cobrança atualizados para 6 tipos (incluindo "limite")
+- Detecção de `jaDisparado` com aviso no modal de cobranças
+
+### Pendentes
+- Substituir `window.confirm()` restantes em `qr.jsx`
+- Implementar toast notifications
+- Adicionar paginação nas tabelas

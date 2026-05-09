@@ -52,14 +52,44 @@ Dispara cobranças manualmente.
 ```json
 {
   "data": "10",
-  "tipo": "lembrete" // opcional: "lembrete", "atraso", "atraso_final", "reconquista", "reconquista_final"
+  "tipo": "lembrete",
+  "forcar": false
 }
 ```
 
-**Resposta:**
+**Parâmetros:**
+- `data` (string): Dia do vencimento (ex: "10", "20", "30")
+- `tipo` (string, opcional): Tipo de cobrança. Valores:
+  - `"lembrete"` - Lembrete (D-1)
+  - `"atraso"` - Atraso
+  - `"atraso_final"` - Atraso Final
+  - `"limite"` - Limite (suspensão hoje)
+  - `"reconquista"` - Reconquista
+  - `"reconquista_final"` - Reconquista Final
+  - `undefined` ou omitido - Automático (por data)
+- `forcar` (boolean, opcional): Forçar disparo mesmo que já tenha sido realizado
+
+**Resposta (Sucesso):**
 ```json
 {
   "ok": true
+}
+```
+
+**Resposta (Já Disparado):**
+```json
+{
+  "ok": false,
+  "jaDisparado": true,
+  "aviso": "Cobrança do dia 10 já foi disparada hoje às 10:30"
+}
+```
+
+**Resposta (Erro):**
+```json
+{
+  "ok": false,
+  "erro": "Mensagem de erro"
 }
 ```
 
@@ -139,7 +169,8 @@ Stream SSE (Server-Sent Events) para atualizações em tempo real do dashboard.
 | `lembrete` | Lembrete | D-1 |
 | `atraso` | Atraso | D+3 |
 | `atraso_final` | Atraso Final | D+5 |
-| `reconquista` | Reconquista 1 | D+7 |
+| `limite` | Limite (suspensão hoje) | D+? |
+| `reconquista` | Reconquista | D+7 |
 | `reconquista_final` | Reconquista Final | D+10 |
 
 ## Erros Comuns
@@ -156,3 +187,4 @@ Stream SSE (Server-Sent Events) para atualizações em tempo real do dashboard.
 - O backend está hospedado no Railway
 - As mensagens de cobrança são salvas no banco e enviadas em background pelo WhatsApp
 - O QR Code atualiza automaticamente a cada 20 segundos quando offline
+- Disparos já realizados retornam `jaDisparado: true` com aviso, permitindo forçar novo disparo
