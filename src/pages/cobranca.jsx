@@ -25,9 +25,14 @@ export function PageCobranca() {
   const [tipo, setTipo] = useState("");
   const [disparando, setDisparando] = useState(false);
   const [resultado, setResultado] = useState(null);
+  const [modalConfirm, setModalConfirm] = useState(null); // null | { data, tipo }
 
-  const disparar = async () => {
-    if (!window.confirm(`Confirma disparo manual?\n\nData de vencimento: ${data}\nTipo: ${tipo || "automático"}`)) return;
+  const pedirConfirmacao = () => {
+    setModalConfirm({ data, tipo: tipo || 'automático' });
+  };
+
+  const confirmarDisparo = async () => {
+    setModalConfirm(null);
     setDisparando(true);
     setResultado(null);
     try {
@@ -136,7 +141,7 @@ export function PageCobranca() {
           )}
 
           <button
-            onClick={disparar}
+            onClick={pedirConfirmacao}
             disabled={disparando}
             style={{
               width: "100%", padding: "12px 0", borderRadius: 8, border: "none",
@@ -228,6 +233,56 @@ export function PageCobranca() {
           </table>
         </div>
       </Card>
+
+      {modalConfirm && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            background: '#1e293b', borderRadius: 12, padding: 32, maxWidth: 400,
+            width: '90%', border: '1px solid #dc2626', boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{ fontSize: 40, textAlign: 'center', marginBottom: 12 }}>⚠️</div>
+            <h3 style={{ color: '#f87171', textAlign: 'center', margin: '0 0 16px', fontSize: 18 }}>
+              Confirmar Disparo Manual
+            </h3>
+            <div style={{ background: '#0f172a', borderRadius: 8, padding: 16, marginBottom: 20 }}>
+              <p style={{ color: '#94a3b8', margin: '0 0 8px', fontSize: 13 }}>
+                📅 <strong style={{ color: '#e2e8f0' }}>Data de vencimento:</strong> Dia {modalConfirm.data}
+              </p>
+              <p style={{ color: '#94a3b8', margin: 0, fontSize: 13 }}>
+                📬 <strong style={{ color: '#e2e8f0' }}>Tipo:</strong> {modalConfirm.tipo}
+              </p>
+            </div>
+            <p style={{ color: '#fbbf24', fontSize: 13, textAlign: 'center', marginBottom: 24 }}>
+              ⚠️ Isso irá enviar mensagens WhatsApp para os clientes elegíveis. Tem certeza?
+            </p>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                onClick={() => setModalConfirm(null)}
+                style={{
+                  flex: 1, padding: '12px 0', borderRadius: 8, border: '1px solid #475569',
+                  background: 'transparent', color: '#94a3b8', fontWeight: 600,
+                  fontSize: 14, cursor: 'pointer'
+                }}
+              >
+                ❌ Cancelar
+              </button>
+              <button
+                onClick={confirmarDisparo}
+                style={{
+                  flex: 1, padding: '12px 0', borderRadius: 8, border: 'none',
+                  background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
+                  color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer'
+                }}
+              >
+                📤 Confirmar Disparo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
