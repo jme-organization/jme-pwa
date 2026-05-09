@@ -32,7 +32,7 @@ export function PageCobranca() {
     setModalConfirm({ data, tipo: tipo || 'automático' });
   };
 
-  const confirmarDisparo = async () => {
+  const confirmarDisparo = async (forcando = false) => {
     setModalConfirm(null);
     setDisparando(true);
     setResultado(null);
@@ -40,14 +40,16 @@ export function PageCobranca() {
       const r = await fetch(API + "/api/cobrar/manual", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ data, tipo: tipo || undefined }),
+        body: JSON.stringify({ data, tipo: tipo || undefined, forcar: forcando }),
       });
       const json = await r.json();
       if (json.ok) {
         setResultado({ ok: true, mensagem: `✅ Disparo iniciado! As mensagens estão sendo enviadas em background.` });
         setTimeout(() => { refetchLogs(); refetchAgenda(); }, 3000);
+      } else if (json.jaDisparado) {
+        setModalConfirm({ data, tipo: tipo || 'automático', jaDisparado: true, aviso: json.aviso });
       } else {
-        setResultado({ ok: false, mensagem: json.erro || "Erro desconhecido" });
+        setResultado({ ok: false, mensagem: json.erro || json.aviso || "Erro desconhecido" });
       }
     } catch (e) {
       setResultado({ ok: false, mensagem: "Falha de conexão com o servidor" });
@@ -259,6 +261,13 @@ export function PageCobranca() {
             <p style={{ color: '#fbbf24', fontSize: 13, textAlign: 'center', marginBottom: 24 }}>
               ⚠️ Isso irá enviar mensagens WhatsApp para os clientes elegíveis. Tem certeza?
             </p>
+            {modalConfirm?.jaDisparado && (
+              <div style={{ background: 'rgba(251,191,36,.1)', border: '1px solid rgba(251,191,36,.4)',
+                borderRadius: 8, padding: 12, marginBottom: 16, fontSize: 13, color: '#fbbf24' }}>
+                ⚠️ {modalConfirm.aviso}<br/>
+                <strong>Deseja disparar novamente mesmo assim?</strong>
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 12 }}>
               <button
                 onClick={() => setModalConfirm(null)}
@@ -271,7 +280,7 @@ export function PageCobranca() {
                 ❌ Cancelar
               </button>
               <button
-                onClick={confirmarDisparo}
+                onClick={() => confirmarDisparo(modalConfirm?.jaDisparado || false)}
                 style={{
                   flex: 1, padding: '12px 0', borderRadius: 8, border: 'none',
                   background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
