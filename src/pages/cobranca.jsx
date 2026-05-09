@@ -12,10 +12,11 @@ const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
 const TIPOS_COBRANCA = [
   { value: "", label: "🔄 Automático (por data)" },
   { value: "lembrete", label: "🔔 Lembrete (D-1)" },
-  { value: "atraso", label: "⏰ Atraso (D+3)" },
-  { value: "atraso_final", label: "🔴 Atraso Final (D+5)" },
-  { value: "reconquista", label: "📞 Reconquista 1 (D+7)" },
-  { value: "reconquista_final", label: "🚨 Reconquista Final (D+10)" },
+  { value: "atraso", label: "⏰ Atraso" },
+  { value: "atraso_final", label: "⚠️ Atraso Final" },
+  { value: "limite", label: "⛔ Limite (suspensão hoje)" },
+  { value: "reconquista", label: "📞 Reconquista" },
+  { value: "reconquista_final", label: "🚨 Reconquista Final" },
 ];
 
 export function PageCobranca() {
