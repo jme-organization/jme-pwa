@@ -9,6 +9,7 @@ export function PageQR({ status }) {
   const [qrUrl, setQrUrl] = useState(null);
   const [desconectando, setDesconectando] = useState(false);
   const [msg, setMsg] = useState(null);
+  const [resetando, setResetando] = useState(false);
 
   const online = status?.online;
 
@@ -35,6 +36,24 @@ export function PageQR({ status }) {
       setMsg({ tipo: 'erro', texto: 'Falha de conexão com o servidor.' });
     }
     setDesconectando(false);
+  };
+
+  const resetarSessao = async () => {
+    if (!confirm('Isso vai deletar a sessão salva e forçar um novo QR Code. Continuar?')) return;
+    setResetando(true);
+    try {
+      const r = await fetch(`${API}/api/whatsapp/resetar-sessao`, {
+        method: 'POST',
+        headers: { "Content-Type": "application/json", ...authHeaders() }
+      });
+      const j = await r.json();
+      setMsg(j.ok
+        ? { tipo: 'ok', texto: '✅ Sessão deletada! Aguarde o servidor gerar novo QR Code.' }
+        : { tipo: 'erro', texto: j.erro || 'Erro ao resetar sessão' });
+    } catch {
+      setMsg({ tipo: 'erro', texto: 'Falha de conexão com o servidor.' });
+    }
+    setResetando(false);
   };
 
   return (
@@ -91,6 +110,14 @@ export function PageQR({ status }) {
             Abra o WhatsApp no seu celular →<br />
             <strong style={{ color: '#e2e8f0' }}>Dispositivos conectados → Conectar dispositivo</strong>
           </div>
+
+          <button onClick={resetarSessao} disabled={resetando}
+            style={{ marginBottom: 16, width: '100%', padding: '10px 0', borderRadius: 10,
+              border: '1px solid rgba(251,191,36,.4)', background: 'rgba(251,191,36,.08)',
+              color: '#fbbf24', fontWeight: 700, fontSize: 14,
+              cursor: resetando ? 'not-allowed' : 'pointer', opacity: resetando ? .6 : 1 }}>
+            {resetando ? 'Deletando sessão...' : '🗑️ Resetar Sessão do WhatsApp'}
+          </button>
 
           {qrUrl ? (
             <div>
