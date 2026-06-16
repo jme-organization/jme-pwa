@@ -1,9 +1,8 @@
 // src/pages/PageQR.jsx — Conexão WhatsApp
 import React, { useState, useEffect, useRef } from 'react';
+import { api } from '../api/client';
 
 const API = import.meta.env.VITE_API_URL || "";
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
 
 const QR_INTERVALO = 20000; // ms entre refreshes do QR
 const SCAN_TIMEOUT = 60000; // ms esperando conexão após scan
@@ -82,16 +81,11 @@ export function PageQR({ status }) {
     if (!confirm('Desconectar o WhatsApp? Você precisará escanear o QR novamente.')) return;
     setDesconectando(true);
     try {
-      const r = await fetch(`${API}/api/whatsapp/desconectar`, { method: 'POST', headers: { "Content-Type": "application/json", ...authHeaders() } });
-      const j = await r.json();
-      if (j.ok) {
-        setForceOffline(true);
-        setMsg({ tipo: 'ok', texto: 'Desconectado com sucesso.' });
-      } else {
-        setMsg({ tipo: 'erro', texto: j.erro || 'Erro ao desconectar' });
-      }
-    } catch {
-      setMsg({ tipo: 'erro', texto: 'Falha de conexão com o servidor.' });
+      await api.post('/api/whatsapp/desconectar');
+      setForceOffline(true);
+      setMsg({ tipo: 'ok', texto: 'Desconectado com sucesso.' });
+    } catch(e) {
+      setMsg({ tipo: 'erro', texto: e.message || 'Erro ao desconectar' });
     }
     setDesconectando(false);
   };
@@ -100,16 +94,10 @@ export function PageQR({ status }) {
     if (!confirm('Isso vai deletar a sessão salva e forçar um novo QR Code. Continuar?')) return;
     setResetando(true);
     try {
-      const r = await fetch(`${API}/api/whatsapp/resetar-sessao`, {
-        method: 'POST',
-        headers: { "Content-Type": "application/json", ...authHeaders() }
-      });
-      const j = await r.json();
-      setMsg(j.ok
-        ? { tipo: 'ok', texto: '✅ Sessão deletada! Aguarde o servidor gerar novo QR Code.' }
-        : { tipo: 'erro', texto: j.erro || 'Erro ao resetar sessão' });
-    } catch {
-      setMsg({ tipo: 'erro', texto: 'Falha de conexão com o servidor.' });
+      await api.post('/api/whatsapp/resetar-sessao');
+      setMsg({ tipo: 'ok', texto: '✅ Sessão deletada! Gerando novo QR Code em instantes...' });
+    } catch(e) {
+      setMsg({ tipo: 'erro', texto: e.message || 'Erro ao resetar sessão' });
     }
     setResetando(false);
   };

@@ -1,13 +1,19 @@
-// frontend/src/api/client.js
-// Wrapper de fetch que injeta API key automaticamente
+// src/api/client.js — cliente HTTP centralizado com auth e timeout
 
 const API = import.meta.env.VITE_API_URL || '';
+const TIMEOUT_MS = 10000;
 
 function headers(extra = {}) {
     const h = { 'Content-Type': 'application/json', ...extra };
     const key = import.meta.env.VITE_ADMIN_API_KEY;
     if (key) h['x-api-key'] = key;
     return h;
+}
+
+function withTimeout(promise, ms = TIMEOUT_MS) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms);
+    return promise.finally(() => clearTimeout(timer));
 }
 
 async function check(resp) {
@@ -25,9 +31,9 @@ async function check(resp) {
 }
 
 export const api = {
-    get:    (url)        => fetch(API + url).then(check),
-    post:   (url, body)  => fetch(API + url, { method: 'POST', headers: headers(), body: JSON.stringify(body || {}) }).then(check),
-    put:    (url, body)  => fetch(API + url, { method: 'PUT',  headers: headers(), body: JSON.stringify(body || {}) }).then(check),
-    delete: (url)        => fetch(API + url, { method: 'DELETE', headers: headers() }).then(check),
+    get:    (url, ms)       => withTimeout(fetch(API + url, { headers: headers() }).then(check), ms),
+    post:   (url, body, ms) => withTimeout(fetch(API + url, { method: 'POST',   headers: headers(), body: JSON.stringify(body ?? {}) }).then(check), ms),
+    put:    (url, body, ms) => withTimeout(fetch(API + url, { method: 'PUT',    headers: headers(), body: JSON.stringify(body ?? {}) }).then(check), ms),
+    delete: (url, ms)       => withTimeout(fetch(API + url, { method: 'DELETE', headers: headers() }).then(check), ms),
     API,
 };
