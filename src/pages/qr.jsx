@@ -1,29 +1,82 @@
 // src/pages/PageQR.jsx — Conexão WhatsApp
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const API = import.meta.env.VITE_API_URL || "";
 const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
 const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
 
+const QR_INTERVALO = 20000; // ms entre refreshes do QR
+const SCAN_TIMEOUT = 60000; // ms esperando conexão após scan
+
 export function PageQR({ status }) {
   const [qrUrl, setQrUrl] = useState(null);
+  const [qrErro, setQrErro] = useState(false);
   const [desconectando, setDesconectando] = useState(false);
   const [msg, setMsg] = useState(null);
   const [resetando, setResetando] = useState(false);
   const [forceOffline, setForceOffline] = useState(false);
+  const [escaneando, setEscaneando] = useState(false);
+  const [countdown, setCountdown] = useState(QR_INTERVALO / 1000);
+  const escaneandoTimer = useRef(null);
+  const countdownTimer = useRef(null);
 
   const online = forceOffline ? false : status?.online;
 
+  // Reseta forceOffline quando status real vira online
+  useEffect(() => {
+    if (status?.online) setForceOffline(false);
+  }, [status?.online]);
+
   // Polling do QR quando offline
   useEffect(() => {
-    if (online) { setQrUrl(null); return; }
-    const load = () => {
+    if (online || escaneando) {
+      setQrUrl(null);
+      setCountdown(QR_INTERVALO / 1000);
+      return;
+    }
+
+    const carregarQR = () => {
+      setQrErro(false);
       setQrUrl(`${API}/qr?t=${Date.now()}`);
+      setCountdown(QR_INTERVALO / 1000);
     };
-    load();
-    const t = setInterval(load, 20000);
+
+    carregarQR();
+    const t = setInterval(carregarQR, QR_INTERVALO);
     return () => clearInterval(t);
-  }, [online]);
+  }, [online, escaneando]);
+
+  // Countdown visual do QR
+  useEffect(() => {
+    if (online || escaneando || !qrUrl) return;
+    if (countdownTimer.current) clearInterval(countdownTimer.current);
+    setCountdown(QR_INTERVALO / 1000);
+    countdownTimer.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) { clearInterval(countdownTimer.current); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(countdownTimer.current);
+  }, [qrUrl, online, escaneando]);
+
+  const marcarEscaneado = () => {
+    setEscaneando(true);
+    if (escaneandoTimer.current) clearTimeout(escaneandoTimer.current);
+    // Se em 60s não conectou, volta pro QR
+    escaneandoTimer.current = setTimeout(() => {
+      setEscaneando(false);
+      setMsg({ tipo: 'erro', texto: 'Conexão não confirmada. Tente escanear novamente.' });
+    }, SCAN_TIMEOUT);
+  };
+
+  // Cancela timer de scan se conectou
+  useEffect(() => {
+    if (status?.online && escaneandoTimer.current) {
+      clearTimeout(escaneandoTimer.current);
+      setEscaneando(false);
+    }
+  }, [status?.online]);
 
   const desconectar = async () => {
     if (!confirm('Desconectar o WhatsApp? Você precisará escanear o QR novamente.')) return;
@@ -102,13 +155,36 @@ export function PageQR({ status }) {
         <div style={{ padding: '12px 16px', borderRadius: 10, marginBottom: 16, fontSize: 13,
           background: msg.tipo === 'ok' ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)',
           border: `1px solid ${msg.tipo === 'ok' ? 'rgba(34,197,94,.3)' : 'rgba(239,68,68,.3)'}`,
-          color: msg.tipo === 'ok' ? '#4ade80' : '#f87171' }}>
-          {msg.texto}
+          color: msg.tipo === 'ok' ? '#4ade80' : '#f87171',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span>{msg.texto}</span>
+          <button onClick={() => setMsg(null)}
+            style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 16 }}>✕</button>
+        </div>
+      )}
+
+      {/* Estado: aguardando conexão após scan */}
+      {!online && escaneando && (
+        <div style={{ background: '#0f1117', borderRadius: 16, padding: 40,
+          border: '1px solid rgba(56,189,248,.3)', textAlign: 'center' }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>⏳</div>
+          <div style={{ fontWeight: 700, fontSize: 16, color: '#38bdf8', marginBottom: 8 }}>
+            Conectando ao WhatsApp...
+          </div>
+          <div style={{ fontSize: 13, color: '#64748b', marginBottom: 24 }}>
+            Aguarde enquanto a sessão é estabelecida.<br />
+            Não feche esta página.
+          </div>
+          <button onClick={() => setEscaneando(false)}
+            style={{ padding: '8px 20px', borderRadius: 8, border: '1px solid rgba(239,68,68,.3)',
+              background: 'rgba(239,68,68,.08)', color: '#f87171', fontSize: 13, cursor: 'pointer' }}>
+            Cancelar — tentar novamente
+          </button>
         </div>
       )}
 
       {/* QR Code */}
-      {!online && (
+      {!online && !escaneando && (
         <div style={{ background: '#0f1117', borderRadius: 16, padding: 32,
           border: '1px solid #2d3148', textAlign: 'center' }}>
           <div style={{ color: '#94a3b8', fontSize: 14, marginBottom: 20 }}>
@@ -124,16 +200,45 @@ export function PageQR({ status }) {
             {resetando ? 'Deletando sessão...' : '🗑️ Resetar Sessão do WhatsApp'}
           </button>
 
-          {qrUrl ? (
+          {qrErro ? (
+            <div style={{ width: 240, height: 240, borderRadius: 12, background: '#1a1d2e',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto', gap: 12 }}>
+              <div style={{ color: '#f87171', fontSize: 13 }}>Erro ao carregar QR</div>
+              <button onClick={() => { setQrErro(false); setQrUrl(`${API}/qr?t=${Date.now()}`); }}
+                style={{ padding: '6px 16px', borderRadius: 8, border: 'none',
+                  background: 'rgba(56,189,248,.15)', color: '#38bdf8', fontSize: 13, cursor: 'pointer' }}>
+                ↻ Tentar novamente
+              </button>
+            </div>
+          ) : qrUrl ? (
             <div>
-              <img src={qrUrl} alt="QR Code WhatsApp"
-                style={{ width: 240, height: 240, borderRadius: 12, background: '#fff', padding: 8 }}
-                onError={() => setQrUrl(null)} />
-              <div style={{ marginTop: 12, fontSize: 12, color: '#64748b' }}>
-                QR Code atualiza automaticamente a cada 20 segundos
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                <img src={qrUrl} alt="QR Code WhatsApp"
+                  style={{ width: 240, height: 240, borderRadius: 12, background: '#fff', padding: 8, display: 'block' }}
+                  onError={() => setQrErro(true)} />
+                {countdown <= 5 && countdown > 0 && (
+                  <div style={{ position: 'absolute', bottom: 8, right: 8,
+                    background: 'rgba(239,68,68,.85)', borderRadius: 8,
+                    padding: '2px 8px', fontSize: 12, fontWeight: 700, color: '#fff' }}>
+                    {countdown}s
+                  </div>
+                )}
               </div>
-              <button onClick={() => setQrUrl(`${API}/qr?t=${Date.now()}`)}
-                style={{ marginTop: 12, padding: '7px 20px', borderRadius: 8, border: 'none',
+              <div style={{ marginTop: 10, fontSize: 12, color: '#64748b' }}>
+                {countdown > 0 ? `QR atualiza em ${countdown}s` : 'Atualizando QR...'}
+              </div>
+
+              {/* Botão confirmar scan */}
+              <button onClick={marcarEscaneado}
+                style={{ marginTop: 16, width: '100%', padding: '11px 0', borderRadius: 10,
+                  border: '1px solid rgba(34,197,94,.4)', background: 'rgba(34,197,94,.1)',
+                  color: '#22c55e', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+                ✅ Já escaneei o QR Code
+              </button>
+
+              <button onClick={() => { setQrErro(false); setQrUrl(`${API}/qr?t=${Date.now()}`); }}
+                style={{ marginTop: 10, padding: '7px 20px', borderRadius: 8, border: 'none',
                   background: 'rgba(56,189,248,.15)', color: '#38bdf8',
                   fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                 ↻ Recarregar QR
@@ -143,7 +248,7 @@ export function PageQR({ status }) {
             <div style={{ width: 240, height: 240, borderRadius: 12, background: '#1a1d2e',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               margin: '0 auto', color: '#64748b', fontSize: 13 }}>
-              Aguardando QR Code...
+              Carregando QR Code...
             </div>
           )}
         </div>
