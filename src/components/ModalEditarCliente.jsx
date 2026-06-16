@@ -2,9 +2,7 @@
 import React, { useState } from 'react';
 import { BadgeCliente } from './BadgeCliente';
 import { PainelDatas } from './PainelDatas';
-
-const API = import.meta.env.VITE_API_URL || "";
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
+import { api } from '../api/client';
 
 export const ModalEditarCliente = ({ cliente, baseId, onClose, onSalvo }) => {
   const [form, setForm] = useState({
@@ -57,19 +55,7 @@ export const ModalEditarCliente = ({ cliente, baseId, onClose, onSalvo }) => {
     setSalvando(true);
     setErro(null);
     try {
-      // ✅ Rota correta para editar cliente
-      const r = await fetch(`${API}/api/bases/${baseId}/clientes/${cliente.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", ...(API_KEY ? { "x-api-key": API_KEY } : {}) },
-        body: JSON.stringify({ ...form, dia_vencimento: parseInt(form.dia_vencimento), comodato: Boolean(form.comodato) }),
-      });
-      
-      if (!r.ok) {
-        const errorText = await r.text();
-        throw new Error(`HTTP ${r.status}: ${errorText}`);
-      }
-      
-      const json = await r.json();
+      const json = await api.put(`/api/bases/${baseId}/clientes/${cliente.id}`, { ...form, dia_vencimento: parseInt(form.dia_vencimento), comodato: Boolean(form.comodato) });
       if (json.id) {
         onSalvo(json);
         onClose();
@@ -87,24 +73,19 @@ export const ModalEditarCliente = ({ cliente, baseId, onClose, onSalvo }) => {
     setSolicitandoCarne(true);
     setCarneMsg(null);
     try {
-      const r = await fetch(`${API}/api/carne`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(API_KEY ? { "x-api-key": API_KEY } : {}) },
-        body: JSON.stringify({
-          cliente_id: cliente.id,
-          nome: form.nome,
-          numero: form.telefone || null,
-          endereco: form.endereco || null,
-        }),
+      const j = await api.post("/api/carne", {
+        cliente_id: cliente.id,
+        nome: form.nome,
+        numero: form.telefone || null,
+        endereco: form.endereco || null,
       });
-      const j = await r.json();
       if (j.ok) {
         setCarneMsg({ ok: true, txt: "✅ Solicitação registrada! Aparece na aba Carnês." });
       } else {
         setCarneMsg({ ok: false, txt: j.erro || "Erro ao solicitar" });
       }
     } catch (e) {
-      setCarneMsg({ ok: false, txt: "Falha de conexão" });
+      setCarneMsg({ ok: false, txt: e.message || "Falha de conexão" });
     }
     setSolicitandoCarne(false);
   };
@@ -117,40 +98,27 @@ export const ModalEditarCliente = ({ cliente, baseId, onClose, onSalvo }) => {
     setSalvandoProm(true);
     setPromMsg(null);
     try {
-      const r = await fetch(`${API}/api/promessas`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(API_KEY ? { "x-api-key": API_KEY } : {}) },
-        body: JSON.stringify({
-          nome: form.nome,
-          numero: form.telefone || null,
-          data_promessa: dataPromessa,
-        }),
+      const json = await api.post("/api/promessas", {
+        nome: form.nome,
+        numero: form.telefone || null,
+        data_promessa: dataPromessa,
       });
-      const json = await r.json();
       if (json.ok) {
-        await fetch(`${API}/api/bases/${baseId}/clientes/${cliente.id}/status`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...(API_KEY ? { "x-api-key": API_KEY } : {}) },
-          body: JSON.stringify({ status: "promessa" }),
-        });
+        await api.post(`/api/bases/${baseId}/clientes/${cliente.id}/status`, { status: "promessa" });
         setPromMsg({ ok: true, txt: `✅ Promessa registrada para ${dataPromessa}` });
         onSalvo({ ...cliente, status: "promessa" });
       } else {
         setPromMsg({ ok: false, txt: json.erro || "Erro ao salvar" });
       }
     } catch (e) {
-      setPromMsg({ ok: false, txt: "Falha de conexão" });
+      setPromMsg({ ok: false, txt: e.message || "Falha de conexão" });
     }
     setSalvandoProm(false);
   };
 
   const toggleStatus = async () => {
     const novoStatus = form.status === "pago" ? "pendente" : "pago";
-    await fetch(`${API}/api/bases/${baseId}/clientes/${cliente.id}/status`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...(API_KEY ? { "x-api-key": API_KEY } : {}) },
-      body: JSON.stringify({ status: novoStatus }),
-    });
+    await api.post(`/api/bases/${baseId}/clientes/${cliente.id}/status`, { status: novoStatus });
     set("status", novoStatus);
     onSalvo({ ...cliente, status: novoStatus });
   };
@@ -565,23 +533,18 @@ export const ModalEditarCliente = ({ cliente, baseId, onClose, onSalvo }) => {
                     setCancelMsg(null);
                     try {
                       // Cancelamento atômico — /api/cancelamentos já deleta o cliente da base
-                      const r = await fetch(`${API}/api/cancelamentos`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json", ...(API_KEY ? { "x-api-key": API_KEY } : {}) },
-                        body: JSON.stringify({
-                          cliente_id: cliente.id,
-                          base_id: baseId,
-                          nome: form.nome,
-                          telefone: form.telefone || null,
-                          endereco: form.endereco || null,
-                          plano: form.plano || null,
-                          dia_vencimento: cliente.dia_vencimento || null,
-                          motivo: motivoCancelamento,
-                          motivo_detalhado: motivoDetalhe || null,
-                          solicitado_via: "painel",
-                        }),
+                      const json = await api.post("/api/cancelamentos", {
+                        cliente_id: cliente.id,
+                        base_id: baseId,
+                        nome: form.nome,
+                        telefone: form.telefone || null,
+                        endereco: form.endereco || null,
+                        plano: form.plano || null,
+                        dia_vencimento: cliente.dia_vencimento || null,
+                        motivo: motivoCancelamento,
+                        motivo_detalhado: motivoDetalhe || null,
+                        solicitado_via: "painel",
                       });
-                      const json = await r.json();
                       if (json.ok) {
                         setCancelado(true);
                         // Remove da lista — backend já deletou do Firestore
@@ -591,7 +554,7 @@ export const ModalEditarCliente = ({ cliente, baseId, onClose, onSalvo }) => {
                         setCancelMsg({ ok: false, txt: json.erro || "Erro ao registrar" });
                       }
                     } catch (e) {
-                      setCancelMsg({ ok: false, txt: "Falha de conexão" });
+                      setCancelMsg({ ok: false, txt: e.message || "Falha de conexão" });
                     }
                     setSalvandoCancel(false);
                   }}

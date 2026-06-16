@@ -6,10 +6,7 @@ import { BuscaGlobal } from './BuscaGlobal';
 import { useTheme } from '../contexts/ThemeContext';
 import { NotificationBell } from './NotificationBell';
 import { BackupButton } from './BackupButton';
-
-const API = import.meta.env.VITE_API_URL || "";
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
+import { api } from '../api/client';
 
 export const TopNav = ({ botAtivo, onToggle, bases }) => {
   const { data: horario, refetch: refetchHorario } = useFetch("/api/horario");
@@ -37,31 +34,19 @@ export const TopNav = ({ botAtivo, onToggle, bases }) => {
   }, [horario, horarioCobranca]);
 
   const salvarHorario = async () => {
-    await fetch(API + "/api/horario", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ inicio: Number(hInicio), fim: Number(hFim), ativo: true })
-    });
+    await api.post("/api/horario", { inicio: Number(hInicio), fim: Number(hFim), ativo: true });
     refetchHorario();
     setEditHorario(false);
   };
 
   const salvarCobranca = async () => {
-    await fetch(API + "/api/horario/cobranca", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ inicio: Number(cInicio), fim: Number(cFim) })
-    });
+    await api.post("/api/horario/cobranca", { inicio: Number(cInicio), fim: Number(cFim) });
     refetchCobranca();
     setEditCobranca(false);
   };
 
   const toggleHorario = async () => {
-    await fetch(API + "/api/horario", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ ativo: !horario?.ativo })
-    });
+    await api.post("/api/horario", { ativo: !horario?.ativo });
     refetchHorario();
   };
 

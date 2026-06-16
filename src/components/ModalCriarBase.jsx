@@ -1,9 +1,6 @@
 // src/components/ModalCriarBase.jsx
 import React, { useState } from 'react';
-
-const API = import.meta.env.VITE_API_URL || "";
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
+import { api } from '../api/client';
 
 export const ModalCriarBase = ({ onClose, onCriada }) => {
   const [form, setForm] = useState({
@@ -36,19 +33,14 @@ export const ModalCriarBase = ({ onClose, onCriada }) => {
     setSalvando(true);
     setErro(null);
     try {
-      const r = await fetch(API + "/api/bases", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify(form)
-      });
-      const json = await r.json();
+      const json = await api.post("/api/bases", form);
       if (json.id) {
         onCriada();
       } else {
         setErro(json.erro || "Erro ao criar base");
       }
     } catch (e) {
-      setErro("Falha de conexão");
+      setErro(e.message || "Falha de conexão");
     }
     setSalvando(false);
   };

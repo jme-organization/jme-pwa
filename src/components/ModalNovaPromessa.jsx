@@ -1,9 +1,6 @@
 // src/components/ModalNovaPromessa.jsx
 import React, { useState } from 'react';
-
-const API = import.meta.env.VITE_API_URL || "";
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
+import { api } from '../api/client';
 
 export const ModalNovaPromessa = ({ onClose, onSalva }) => {
   const [nome, setNome] = useState("");
@@ -20,16 +17,11 @@ export const ModalNovaPromessa = ({ onClose, onSalva }) => {
     setSalvando(true);
     setErro(null);
     try {
-      const r = await fetch(`${API}/api/promessas`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({
-          nome: nome.trim(),
-          numero: numero || null,
-          data_promessa: data
-        })
+      const j = await api.post("/api/promessas", {
+        nome: nome.trim(),
+        numero: numero || null,
+        data_promessa: data
       });
-      const j = await r.json();
       if (j.ok) {
         onSalva();
         onClose();
@@ -37,7 +29,7 @@ export const ModalNovaPromessa = ({ onClose, onSalva }) => {
         setErro(j.erro || "Erro ao salvar");
       }
     } catch (e) {
-      setErro("Falha de conexão");
+      setErro(e.message || "Falha de conexão");
     }
     setSalvando(false);
   };

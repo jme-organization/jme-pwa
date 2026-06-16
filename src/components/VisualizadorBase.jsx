@@ -7,10 +7,7 @@ import { BadgeCliente } from './BadgeCliente';
 import { ModalEditarCliente } from './ModalEditarCliente';
 import { ModalNovoClienteBase } from './ModalNovoClientebase';
 import * as XLSX from "https://cdn.sheetjs.com/xlsx-0.20.0/package/xlsx.mjs";
-
-const API = import.meta.env.VITE_API_URL || "";
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
+import { api } from '../api/client';
 
 export const VisualizadorBase = ({ base, onVoltar }) => {
   const [diaAtivo, setDiaAtivo] = useState(base?.dias?.[0] || 10);
@@ -26,19 +23,6 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
   const itensPorPagina = 20;
   const navigate = useNavigate();
   const reqIdRef = useRef(0);
-
-  if (!base?.id) {
-    return (
-      <div className="page">
-        <button onClick={onVoltar} style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: 14, cursor: 'pointer', marginBottom: 16 }}>
-          ← Bases
-        </button>
-        <div style={{ padding: '2rem', color: '#64748b' }}>
-          Base não encontrada.
-        </div>
-      </div>
-    );
-  }
 
   const mesRefAnterior = () => {
     const agora = new Date();
@@ -106,10 +90,8 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
       } else if (modoAtual === "passado") {
         qs.set("mes_ref", mesRefAnterior()); // Mês anterior
       }
-      const url = `${API}/api/bases/${base.id}/clientes${qs.toString() ? `?${qs.toString()}` : ""}`;
       const reqId = ++reqIdRef.current;
-      const r = await fetch(url, { headers: authHeaders() });
-      const data = await r.json();
+      const data = await api.get(`/api/bases/${base.id}/clientes${qs.toString() ? `?${qs.toString()}` : ""}`);
       if (reqId === reqIdRef.current) {
         setClientes(data);
       }
@@ -124,8 +106,7 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
   }, [carregar]);
 
   useEffect(() => {
-    fetch(API + "/api/ciclo-info", { headers: authHeaders() })
-      .then(r => r.json())
+    api.get("/api/ciclo-info")
       .then(d => setMesReferencia(d))
       .catch(() => {});
   }, []);
@@ -133,6 +114,20 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
   useEffect(() => {
     setPagina(1);
   }, [diaAtivo, filtro, busca]);
+
+  // Early return após todos os hooks (hooks não podem ser chamados condicionalmente)
+  if (!base?.id) {
+    return (
+      <div className="page">
+        <button onClick={onVoltar} style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: 14, cursor: 'pointer', marginBottom: 16 }}>
+          ← Bases
+        </button>
+        <div style={{ padding: '2rem', color: '#64748b' }}>
+          Base não encontrada.
+        </div>
+      </div>
+    );
+  }
 
   const clientesDia = clientes.filter(c => parseInt(c.dia_vencimento) === diaAtivo);
   const filtrados = clientesDia.filter(c => {
@@ -195,8 +190,7 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
 
   const exportarExcel = async () => {
     try {
-      const r = await fetch(`${API}/api/exportar/clientes`, { headers: authHeaders() });
-      const clientes = await r.json();
+      const clientes = await api.get("/api/exportar/clientes");
       const rows = clientes.map(c => ({
         Nome: c.nome || "",
         CPF: c.cpf || "",

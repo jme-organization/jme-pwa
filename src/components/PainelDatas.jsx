@@ -1,14 +1,6 @@
 // src/components/PainelDatas.jsx
 import React, { useState, useEffect } from 'react';
-
-const API = import.meta.env.VITE_API_URL || "";
-
-function authHeaders(extra = {}) {
-    const h = { 'Content-Type': 'application/json', ...extra };
-    const key = import.meta.env.VITE_ADMIN_API_KEY;
-    if (key) h['x-api-key'] = key;
-    return h;
-}
+import { api } from '../api/client';
 
 export const PainelDatas = ({ clienteId, diaVencimento, plano, onStatusChange }) => {
   const [historico, setHistorico] = useState(null);
@@ -19,11 +11,7 @@ export const PainelDatas = ({ clienteId, diaVencimento, plano, onStatusChange })
   const carregarHistorico = async () => {
     try {
       setErro(null);
-      const response = await fetch(`${API}/api/clientes/${clienteId}/historico`, {
-        headers: authHeaders()
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
+      const data = await api.get(`/api/clientes/${clienteId}/historico`);
       setHistorico(data);
     } catch (error) {
       console.error('Erro ao carregar histórico:', error);
@@ -74,12 +62,7 @@ export const PainelDatas = ({ clienteId, diaVencimento, plano, onStatusChange })
     setBaixando(ref);
     setErro(null);
     try {
-      const response = await fetch(`${API}/api/clientes/${clienteId}/historico/${encodeURIComponent(ref)}/pagar`, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ forma_pagamento: forma || null }),
-      });
-      if (!response.ok) throw new Error('Erro ao confirmar baixa');
+      await api.post(`/api/clientes/${clienteId}/historico/${encodeURIComponent(ref)}/pagar`, { forma_pagamento: forma || null });
       await carregarHistorico();
       if (onStatusChange) onStatusChange("pago");
     } catch (error) {
@@ -95,11 +78,7 @@ export const PainelDatas = ({ clienteId, diaVencimento, plano, onStatusChange })
     setBaixando(ref + "_rev");
     setErro(null);
     try {
-      const response = await fetch(`${API}/api/clientes/${clienteId}/historico/${encodeURIComponent(ref)}/reverter`, {
-        method: "POST",
-        headers: authHeaders(),
-      });
-      if (!response.ok) throw new Error('Erro ao reverter');
+      await api.post(`/api/clientes/${clienteId}/historico/${encodeURIComponent(ref)}/reverter`, {});
       await carregarHistorico();
       if (onStatusChange) onStatusChange("pendente");
     } catch (error) {

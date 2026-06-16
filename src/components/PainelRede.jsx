@@ -2,10 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from './Card';
 import { REDE_LABELS } from '../constants';
-
-const API = import.meta.env.VITE_API_URL || "";
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
+import { api } from '../api/client';
 
 export const PainelRede = ({ situacaoRede: inicial, previsaoRetorno: prevInicial, onAtualizar }) => {
   const [status, setStatus] = useState(inicial || "normal");
@@ -16,8 +13,7 @@ export const PainelRede = ({ situacaoRede: inicial, previsaoRetorno: prevInicial
 
   // Busca o status real ao montar — não depende do SSE chegar a tempo
   useEffect(() => {
-    fetch(API + "/api/rede", { headers: authHeaders() })
-      .then(r => r.ok ? r.json() : null)
+    api.get("/api/rede")
       .then(d => {
         if (d) {
           setStatus(d.situacaoRede || "normal");
@@ -39,17 +35,9 @@ export const PainelRede = ({ situacaoRede: inicial, previsaoRetorno: prevInicial
     setSalvando(true);
     setMsg("");
     try {
-      const r = await fetch(API + "/api/rede", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ status, previsao: previsao || "sem previsão", motivo: motivo || "" })
-      });
-      if (r.ok) {
-        setMsg("✅ Status atualizado!");
-        if (onAtualizar) onAtualizar();
-      } else {
-        setMsg("❌ Erro ao salvar");
-      }
+      await api.post("/api/rede", { status, previsao: previsao || "sem previsão", motivo: motivo || "" });
+      setMsg("✅ Status atualizado!");
+      if (onAtualizar) onAtualizar();
     } catch {
       setMsg("❌ Sem conexão");
     }

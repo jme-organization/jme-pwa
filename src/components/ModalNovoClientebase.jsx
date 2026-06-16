@@ -1,9 +1,6 @@
 // src/components/ModalNovoClienteBase.jsx
 import React, { useState } from 'react';
-
-const API = import.meta.env.VITE_API_URL || "";
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
+import { api } from '../api/client';
 
 export const ModalNovoClienteBase = ({ baseId, diaDefault, onClose, onSalvo }) => {
   const [form, setForm] = useState({
@@ -31,23 +28,11 @@ export const ModalNovoClienteBase = ({ baseId, diaDefault, onClose, onSalvo }) =
     setSalvando(true);
     setErro(null);
     try {
-      // 🔥 CORREÇÃO: Rota correta para criar cliente
-      const r = await fetch(`${API}/api/clientes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({
-          ...form, 
-          base_id: parseInt(baseId),  // ← IMPORTANTE: enviar o base_id como número
-          dia_vencimento: parseInt(form.dia_vencimento) 
-        }),
+      const json = await api.post("/api/clientes", {
+        ...form,
+        base_id: parseInt(baseId),
+        dia_vencimento: parseInt(form.dia_vencimento)
       });
-      
-      if (!r.ok) {
-        const errorText = await r.text();
-        throw new Error(`HTTP ${r.status}: ${errorText}`);
-      }
-      
-      const json = await r.json();
       if (json.id) {
         onSalvo(json);
         onClose();
