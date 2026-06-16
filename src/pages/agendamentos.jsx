@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFetch } from '../hooks/useFetch';
 import { Pagination } from '../components/Pagination';
-
-const API = import.meta.env.VITE_API_URL || "";
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
+import { api } from '../api/client';
 
 export function PageAgendamentos() {
     const [filtroData, setFiltroData] = useState('todos');
@@ -22,19 +19,8 @@ export function PageAgendamentos() {
     const fetchAgendamentos = async () => {
         setLoading(true);
         try {
-            const url = `/api/agendamentos?data=${filtroData}&status=${filtroStatus}`;
-            const response = await fetch(url, { headers: authHeaders() });
-            
-            // Verifica se a resposta foi bem sucedida
-            if (!response.ok) {
-                console.error('Erro na resposta da API:', response.status);
-                setAgendamentos([]);
-                setTotalPages(1);
-                return;
-            }
-            
-            const data = await response.json();
-            
+            const data = await api.get(`/api/agendamentos?data=${filtroData}&status=${filtroStatus}`);
+
             // Garante que data é um array
             const agendamentosArray = Array.isArray(data) ? data : [];
             setAgendamentos(agendamentosArray);
@@ -54,7 +40,7 @@ export function PageAgendamentos() {
     async function concluirAgendamento(id) {
         if (confirm('Marcar como concluído?')) {
             try {
-                await fetch(API + `/api/agendamentos/${id}/concluir`, { method: 'POST', headers: { "Content-Type": "application/json", ...authHeaders() } });
+                await api.post(`/api/agendamentos/${id}/concluir`);
                 fetchAgendamentos();
             } catch (error) {
                 console.error('Erro ao concluir agendamento:', error);
@@ -65,7 +51,7 @@ export function PageAgendamentos() {
     async function cancelarAgendamento(id) {
         if (confirm('Cancelar este agendamento?')) {
             try {
-                await fetch(API + `/api/agendamentos/${id}/cancelar`, { method: 'POST', headers: { "Content-Type": "application/json", ...authHeaders() } });
+                await api.post(`/api/agendamentos/${id}/cancelar`);
                 fetchAgendamentos();
             } catch (error) {
                 console.error('Erro ao cancelar agendamento:', error);

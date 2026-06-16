@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '../components/Card';
 import { Spinner } from '../components/Spinner';
-
-const API = import.meta.env.VITE_API_URL || "";
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
+import { api } from '../api/client';
 
 export function PageBoasVindas() {
   const [clientes, setClientes] = useState([]);
@@ -26,8 +23,8 @@ export function PageBoasVindas() {
   const carregarClientes = async () => {
     setLoading(true);
     try {
-      const r = await fetch(`${API}/api/clientes/recentes?limite=25`, { headers: authHeaders() });
-      if (r.ok) setClientes(await r.json());
+      const data = await api.get('/api/clientes/recentes?limite=25');
+      setClientes(data);
     } catch(_) { }
     setLoading(false);
   };
@@ -76,21 +73,12 @@ export function PageBoasVindas() {
         body.carne_arquivo_tipo = tipo;
       }
 
-      const r = await fetch(`${API}/api/boas-vindas/enviar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify(body)
-      });
-      const data = await r.json();
-      if (data.ok) {
-        alert(`✅ Boas-vindas enviada para ${cliente.nome}!${solicitarCarne ? ' Carnê solicitado!' : ''}${arquivoCarne ? ' Carnê anexado!' : ''}`);
-        setModalCliente(null);
-        setArquivoCarne(null);
-      } else {
-        alert(`❌ Erro: ${data.erro}`);
-      }
+      const data = await api.post('/api/boas-vindas/enviar', body);
+      alert(`✅ Boas-vindas enviada para ${cliente.nome}!${solicitarCarne ? ' Carnê solicitado!' : ''}${arquivoCarne ? ' Carnê anexado!' : ''}`);
+      setModalCliente(null);
+      setArquivoCarne(null);
     } catch(e) {
-      alert('Erro ao conectar com o servidor');
+      alert(`❌ Erro: ${e.message}`);
     }
     setEnviando(prev => ({ ...prev, [cliente.id]: false }));
   };
@@ -102,22 +90,13 @@ export function PageBoasVindas() {
       return;
     }
     try {
-      const r = await fetch(`${API}/api/boas-vindas/manual`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ telefone: telefoneManual, mensagem: msgManual })
-      });
-      const data = await r.json();
-      if (data.ok) {
-        alert('✅ Mensagem enviada!');
-        setModalManual(false);
-        setTelefoneManual('');
-        setMsgManual('');
-      } else {
-        alert(`❌ Erro: ${data.erro}`);
-      }
+      await api.post('/api/boas-vindas/manual', { telefone: telefoneManual, mensagem: msgManual });
+      alert('✅ Mensagem enviada!');
+      setModalManual(false);
+      setTelefoneManual('');
+      setMsgManual('');
     } catch(e) {
-      alert('Erro ao conectar com o servidor');
+      alert(`❌ Erro: ${e.message}`);
     }
   };
 

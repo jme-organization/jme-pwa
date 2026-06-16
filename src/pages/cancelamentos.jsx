@@ -1,12 +1,9 @@
 // src/pages/Cancelamentos.jsx
 import React, { useState } from 'react';
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
 import { useSSEData } from '../hooks/useSSEData';
 import { Card } from '../components/Card';
 import { Spinner } from '../components/Spinner';
-
-const API = import.meta.env.VITE_API_URL || "";
+import { api } from '../api/client';
 
 export function PageCancelamentos() {
   const { data, loading, refetch } = useSSEData("/api/cancelamentos", "cancelamentos");
@@ -16,19 +13,19 @@ export function PageCancelamentos() {
 
   const confirmar = async (id) => {
     if (!confirm("Confirmar cancelamento? O cliente será notificado.")) return;
-    await fetch(`${API}/api/cancelamentos/${id}/confirmar`, { method: "POST", headers: { ...authHeaders() } });
+    await api.post(`/api/cancelamentos/${id}/confirmar`);
     refetch();
   };
 
   const reverter = async (id) => {
     if (!confirm("Reverter cancelamento? O cliente volta como ativo.")) return;
-    await fetch(`${API}/api/cancelamentos/${id}/cancelar`, { method: "POST", headers: { ...authHeaders() } });
+    await api.post(`/api/cancelamentos/${id}/cancelar`);
     refetch();
   };
 
   const excluir = async (id) => {
     if (!confirm("Excluir registro?")) return;
-    await fetch(`${API}/api/cancelamentos/${id}`, { method: "DELETE", headers: { ...authHeaders() } });
+    await api.delete(`/api/cancelamentos/${id}`);
     refetch();
   };
 

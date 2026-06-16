@@ -4,10 +4,7 @@ import { useFetch } from '../hooks/useFetch';
 import { Card } from '../components/Card';
 import { Spinner } from '../components/Spinner';
 import { fmtDate } from '../utils/formatadores';
-
-const API = import.meta.env.VITE_API_URL || "";
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
+import { api } from '../api/client';
 
 const TIPOS_COBRANCA = [
   { value: "", label: "🔄 Automático (por data)" },
@@ -37,22 +34,15 @@ export function PageCobranca() {
     setDisparando(true);
     setResultado(null);
     try {
-      const r = await fetch(API + "/api/cobrar/manual", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ data, tipo: tipo || undefined, forcar: forcando }),
-      });
-      const json = await r.json();
-      if (json.ok) {
-        setResultado({ ok: true, mensagem: `✅ Disparo iniciado! As mensagens estão sendo enviadas em background.` });
-        setTimeout(() => { refetchLogs(); refetchAgenda(); }, 3000);
-      } else if (json.jaDisparado) {
+      const json = await api.post("/api/cobrar/manual", { data, tipo: tipo || undefined, forcar: forcando });
+      if (json.jaDisparado) {
         setModalConfirm({ data, tipo: tipo || 'automático', jaDisparado: true, aviso: json.aviso });
       } else {
-        setResultado({ ok: false, mensagem: json.erro || json.aviso || "Erro desconhecido" });
+        setResultado({ ok: true, mensagem: `✅ Disparo iniciado! As mensagens estão sendo enviadas em background.` });
+        setTimeout(() => { refetchLogs(); refetchAgenda(); }, 3000);
       }
     } catch (e) {
-      setResultado({ ok: false, mensagem: "Falha de conexão com o servidor" });
+      setResultado({ ok: false, mensagem: e.message || "Falha de conexão com o servidor" });
     }
     setDisparando(false);
   };

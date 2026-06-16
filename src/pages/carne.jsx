@@ -1,13 +1,10 @@
 // src/pages/Carne.jsx
 import React, { useState } from 'react';
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
 import { useFetch } from '../hooks/useFetch';
 import { Card } from '../components/Card';
 import { Spinner } from '../components/Spinner';
 import { fmtDate, fmtTel } from '../utils/formatadores';
-
-const API = import.meta.env.VITE_API_URL || "";
+import { api } from '../api/client';
 
 export function PageCarne() {
   const { data, loading, refetch } = useFetch("/api/carne");
@@ -28,14 +25,14 @@ export function PageCarne() {
 
   const acao = async (id, tipo) => {
     setAtualizando(prev => ({ ...prev, [`${id}-${tipo}`]: true }));
-    await fetch(`${API}/api/carne/${id}/${tipo}`, { method: "POST", headers: { ...authHeaders() } });
+    await api.post(`/api/carne/${id}/${tipo}`);
     refetch();
     setAtualizando(prev => ({ ...prev, [`${id}-${tipo}`]: false }));
   };
 
   const deletar = async (id) => {
     if (!confirm("Remover solicitação de carnê?")) return;
-    await fetch(`${API}/api/carne/${id}`, { method: "DELETE", headers: { ...authHeaders() } });
+    await api.delete(`/api/carne/${id}`);
     refetch();
   };
 

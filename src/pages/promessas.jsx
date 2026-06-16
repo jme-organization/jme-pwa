@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from 'react';
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
-
-const API = import.meta.env.VITE_API_URL || "";
+import { api } from '../api/client';
 
 export function PagePromessas() {
     const [filtroStatus, setFiltroStatus] = useState('pendente');
@@ -18,14 +15,8 @@ export function PagePromessas() {
         setLoading(true);
         setErro('');
         try {
-            const url = `${API}/api/promessas${filtroStatus !== 'todos' ? `?status=${filtroStatus}` : ''}`;
-            const response = await fetch(url, { headers: authHeaders() });
-            
-            if (!response.ok) {
-                throw new Error(`Erro HTTP: ${response.status}`);
-            }
-            
-            const data = await response.json();
+            const url = `/api/promessas${filtroStatus !== 'todos' ? `?status=${filtroStatus}` : ''}`;
+            const data = await api.get(url);
             setPromessas(data);
         } catch (error) {
             console.error('Erro ao carregar promessas:', error);
@@ -37,46 +28,26 @@ export function PagePromessas() {
 
     async function marcarPago(id) {
         if (!confirm('Confirmar pagamento desta promessa?')) return;
-        
+
         try {
-            const response = await fetch(API + `/api/promessas/${id}/pago`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...authHeaders() }
-            });
-            
-            const data = await response.json();
-            
-            if (data.ok) {
-                alert('✅ Pagamento confirmado! O status do cliente foi atualizado.');
-                carregarPromessas(); // Recarrega a lista
-            } else {
-                alert('❌ Erro: ' + (data.erro || 'Erro desconhecido'));
-            }
+            await api.post(`/api/promessas/${id}/pago`);
+            alert('✅ Pagamento confirmado! O status do cliente foi atualizado.');
+            carregarPromessas();
         } catch (error) {
-            alert('Erro ao conectar com o servidor');
+            alert('❌ Erro: ' + error.message);
             console.error(error);
         }
     }
 
     async function cancelarPromessa(id) {
         if (!confirm('Cancelar esta promessa?')) return;
-        
+
         try {
-            const response = await fetch(API + `/api/promessas/${id}/cancelar`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...authHeaders() }
-            });
-            
-            const data = await response.json();
-            
-            if (data.ok) {
-                alert('✅ Promessa cancelada!');
-                carregarPromessas();
-            } else {
-                alert('❌ Erro: ' + (data.erro || 'Erro desconhecido'));
-            }
+            await api.post(`/api/promessas/${id}/cancelar`);
+            alert('✅ Promessa cancelada!');
+            carregarPromessas();
         } catch (error) {
-            alert('Erro ao conectar com o servidor');
+            alert('❌ Erro: ' + error.message);
             console.error(error);
         }
     }

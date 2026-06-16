@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
 import { useFetch } from '../hooks/useFetch';
-
-const API = import.meta.env.VITE_API_URL || "";
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
+import { api } from '../api/client';
 
 export function PageNovos() {
     const [abaAtiva, setAbaAtiva] = useState('solicitacoes'); // 'solicitacoes' ou 'agendadas'
@@ -21,45 +18,41 @@ export function PageNovos() {
 
     async function confirmarInstalacao(id) {
         if (confirm('Confirmar esta instalação? O cliente será adicionado à base.')) {
-            const response = await fetch(API + `/api/instalacoes-agendadas/${id}/confirmar`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...authHeaders() }
-            });
-            const data = await response.json();
-            if (data.ok) {
+            try {
+                await api.post(`/api/instalacoes-agendadas/${id}/confirmar`);
                 alert('✅ Cliente adicionado à base com sucesso!');
                 refetchAgend();
                 refetchSolic(); // Atualiza também as solicitações se necessário
-            } else {
-                alert('❌ Erro: ' + data.erro);
+            } catch(e) {
+                alert('❌ Erro: ' + e.message);
             }
         }
     }
 
     async function concluirInstalacao(id) {
         if (confirm('Marcar instalação como concluída?')) {
-            await fetch(API + `/api/instalacoes-agendadas/${id}/concluir`, { method: 'POST', headers: { "Content-Type": "application/json", ...authHeaders() } });
+            await api.post(`/api/instalacoes-agendadas/${id}/concluir`);
             refetchAgend();
         }
     }
 
     async function cancelarInstalacao(id) {
         if (confirm('Cancelar esta instalação?')) {
-            await fetch(API + `/api/instalacoes-agendadas/${id}/cancelar`, { method: 'POST', headers: { "Content-Type": "application/json", ...authHeaders() } });
+            await api.post(`/api/instalacoes-agendadas/${id}/cancelar`);
             refetchAgend();
         }
     }
 
     async function finalizarSolicitacao(id) {
         if (confirm('Finalizar esta solicitação? O cliente será adicionado à base.')) {
-            await fetch(API + `/api/instalacoes/${id}/finalizar`, { method: 'POST', headers: { "Content-Type": "application/json", ...authHeaders() } });
+            await api.post(`/api/instalacoes/${id}/finalizar`);
             refetchSolic();
         }
     }
 
     async function confirmarSolicitacao(id) {
         if (confirm('Confirmar esta solicitação?')) {
-            await fetch(API + `/api/instalacoes/${id}/confirmar`, { method: 'POST', headers: { "Content-Type": "application/json", ...authHeaders() } });
+            await api.post(`/api/instalacoes/${id}/confirmar`);
             refetchSolic();
         }
     }

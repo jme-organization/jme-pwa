@@ -1,10 +1,9 @@
 // src/hooks/useSSEData.js
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { api } from '../api/client';
 
 const API = import.meta.env.VITE_API_URL || "";
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
 
 // SSE singleton com contagem de referência
 let _es = null;
@@ -88,9 +87,7 @@ export function useSSEData(url, recurso) {
 
         try {
             setLoading(true);
-            const r = await fetch(API + url, { headers: authHeaders() });
-            if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            const json = await r.json();
+            const json = await api.get(url);
             if (mountedRef.current) {
                 setData(json);
                 setError(null);

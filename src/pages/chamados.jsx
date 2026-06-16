@@ -4,10 +4,7 @@ import { useSSEData } from '../hooks/useSSEData';
 import { Card } from '../components/Card';
 import { Spinner } from '../components/Spinner';
 import { fmtTel } from '../utils/formatadores';
-
-const API = import.meta.env.VITE_API_URL || "";
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
+import { api } from '../api/client';
 
 export function PageChamados() {
   const { data, loading, refetch } = useSSEData("/api/chamados", "chamados");
@@ -23,7 +20,7 @@ export function PageChamados() {
   };
 
   const acao = async (id, tipo) => {
-    await fetch(`${API}/api/chamados/${id}/${tipo}`, { method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() } });
+    await api.post(`/api/chamados/${id}/${tipo}`);
     refetch();
   };
 

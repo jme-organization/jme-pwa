@@ -7,8 +7,6 @@ import { Spinner } from '../components/Spinner';
 import { api } from '../api/client';
 import * as XLSX from "https://cdn.sheetjs.com/xlsx-0.20.0/package/xlsx.mjs";
 
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
 
 // ── Aba 1: Inadimplentes por dias ──────────────────────────
 function AbaInadimplentes() {
@@ -21,13 +19,8 @@ function AbaInadimplentes() {
   const carregar = async () => {
     setLoading(true);
     try {
-      const resp = await fetch(`${api.API}/api/relatorio/inadimplentes?dias=${dias}`, {
-        headers: { ...authHeaders() },
-      });
-      if (resp.ok) {
-        const json = await resp.json();
-        setData(json);
-      }
+      const json = await api.get(`/api/relatorio/inadimplentes?dias=${dias}`);
+      setData(json);
     } catch(e) { /* ignora */ }
     setLoading(false);
   };

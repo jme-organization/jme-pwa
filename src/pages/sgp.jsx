@@ -4,10 +4,7 @@ import { useSSEData } from '../hooks/useSSEData';
 import { Card } from '../components/Card';
 import { Spinner } from '../components/Spinner';
 import { Badge } from '../components/Badge';
-
-const API = import.meta.env.VITE_API_URL || "";
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
+import { api } from '../api/client';
 
 export function PageSGP() {
   const { data: planilha, loading, refetch } = useSSEData("/api/planilha/resumo", "clientes");
@@ -28,15 +25,9 @@ export function PageSGP() {
     const key = `${aba}-${nome}`;
     setConfirmando(p => ({ ...p, [key]: true }));
     try {
-      const r = await fetch(API + "/api/sgp/confirmar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ nome, aba })
-      });
-      if (r.ok) {
-        setConfirmados(p => ({ ...p, [key]: true }));
-        setTimeout(() => refetch(), 1000);
-      }
+      await api.post("/api/sgp/confirmar", { nome, aba });
+      setConfirmados(p => ({ ...p, [key]: true }));
+      setTimeout(() => refetch(), 1000);
     } catch (e) {
       console.error(e);
     } finally {

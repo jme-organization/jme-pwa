@@ -1,10 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { usePagination } from '../hooks/usePagination';
 import { Pagination } from '../components/Pagination';
-
-const API = import.meta.env.VITE_API_URL || "";
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
+import { api } from '../api/client';
 
 export function PageLogs() {
     const [filtroTipo, setFiltroTipo] = useState('');
@@ -13,11 +10,10 @@ export function PageLogs() {
     // useCallback — sem isso fetchLogs recria a cada render e causa loop infinito
     const fetchLogs = useCallback(async (page, pageSize) => {
         const offset = (page - 1) * pageSize;
-        let url = `${API}/api/logs/bot?limit=${pageSize}&offset=${offset}`;
+        let url = `/api/logs/bot?limit=${pageSize}&offset=${offset}`;
         if (filtroNumero) url += `&numero=${encodeURIComponent(filtroNumero)}`;
-        
-        const response = await fetch(url, { headers: authHeaders() });
-        const json = await response.json();
+
+        const json = await api.get(url);
         return {
             data: json.rows || [],
             total: json.total || 0,
