@@ -10,8 +10,9 @@ export function PageQR({ status }) {
   const [desconectando, setDesconectando] = useState(false);
   const [msg, setMsg] = useState(null);
   const [resetando, setResetando] = useState(false);
+  const [forceOffline, setForceOffline] = useState(false);
 
-  const online = status?.online;
+  const online = forceOffline ? false : status?.online;
 
   // Polling do QR quando offline
   useEffect(() => {
@@ -30,8 +31,12 @@ export function PageQR({ status }) {
     try {
       const r = await fetch(`${API}/api/whatsapp/desconectar`, { method: 'POST', headers: { "Content-Type": "application/json", ...authHeaders() } });
       const j = await r.json();
-      setMsg(j.ok ? { tipo: 'ok', texto: 'Desconectado com sucesso. Atualize a página em alguns segundos.' }
-                  : { tipo: 'erro', texto: j.erro || 'Erro ao desconectar' });
+      if (j.ok) {
+        setForceOffline(true);
+        setMsg({ tipo: 'ok', texto: 'Desconectado com sucesso.' });
+      } else {
+        setMsg({ tipo: 'erro', texto: j.erro || 'Erro ao desconectar' });
+      }
     } catch {
       setMsg({ tipo: 'erro', texto: 'Falha de conexão com o servidor.' });
     }
