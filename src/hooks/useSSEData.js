@@ -85,15 +85,15 @@ export function useSSEData(url, recurso) {
 
     const load = useCallback(async () => {
         if (!mountedRef.current) return;
-        
+
         try {
             setLoading(true);
             const r = await fetch(API + url, { headers: authHeaders() });
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const json = await r.json();
-            if (mountedRef.current) { 
-                setData(json); 
-                setError(null); 
+            if (mountedRef.current) {
+                setData(json);
+                setError(null);
             }
         } catch(e) {
             if (mountedRef.current) setError(e.message);
@@ -104,24 +104,27 @@ export function useSSEData(url, recurso) {
 
     loadRef.current = load;
 
+    // Wrapper estável que sempre chama a versão atual de load via ref
+    const stableLoad = useCallback(() => loadRef.current?.(), []);
+
     useEffect(() => {
         mountedRef.current = true;
         load();
 
         if (recurso) {
-            getSSE(); // conecta (incrementa refCount)
+            getSSE();
             if (!_listeners.has(recurso)) _listeners.set(recurso, new Set());
-            _listeners.get(recurso).add(load);
+            _listeners.get(recurso).add(stableLoad);
         }
 
         return () => {
             mountedRef.current = false;
             if (recurso) {
-                _listeners.get(recurso)?.delete(load);
-                releaseSSE(); // decrementa refCount e fecha se for zero
+                _listeners.get(recurso)?.delete(stableLoad);
+                releaseSSE();
             }
         };
-    }, [recurso]); // load não precisa estar nas dependências (useRef)
+    }, [recurso, stableLoad]);
 
     return { data, loading, error, refetch: load };
 }

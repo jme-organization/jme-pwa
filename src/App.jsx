@@ -75,11 +75,10 @@ function AppContent() {
   }, []);
 
   const toggleBot = async () => {
-    await fetch(API + "/api/bot/toggle", {
-        method: "POST",
-        headers: authHeaders()
-    });
-};
+    try {
+      await fetch(API + "/api/bot/toggle", { method: "POST", headers: authHeaders() });
+    } catch(_) {}
+  };
 
   return (
     <BrowserRouter>
