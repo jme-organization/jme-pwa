@@ -22,7 +22,6 @@ export const ModalEditarCliente = ({ cliente, baseId, onClose, onSalvo }) => {
 
   const [aba, setAba] = useState("dados");
   const [diaOutro, setDiaOutro] = useState(!["10","20","30"].includes(String(cliente.dia_vencimento)) ? String(cliente.dia_vencimento || "") : "");
-  const [mostrarConfigAvancada, setMostrarConfigAvancada] = useState(!!cliente.config_cobranca);
   const [offsets, setOffsets] = useState(cliente.config_cobranca?.offsets?.length ? cliente.config_cobranca.offsets : [-1, 1, 3, 5, 7, 9]);
   const [novoOffset, setNovoOffset] = useState("");
   const [salvandoConfig, setSalvandoConfig] = useState(false);
@@ -227,6 +226,7 @@ export const ModalEditarCliente = ({ cliente, baseId, onClose, onSalvo }) => {
           <button style={abaBtnStyle("dados")} onClick={() => setAba("dados")}>📋 Dados</button>
           <button style={abaBtnStyle("contato")} onClick={() => setAba("contato")}>📞 Contato</button>
           <button style={abaBtnStyle("financeiro")} onClick={() => setAba("financeiro")}>💰 Financeiro</button>
+          <button style={abaBtnStyle("cobranca")} onClick={() => setAba("cobranca")}>⚙️ Cobrança</button>
           <button style={abaBtnStyle("promessa")} onClick={() => setAba("promessa")}>🤝 Promessa</button>
           <button
             style={{
@@ -355,177 +355,6 @@ export const ModalEditarCliente = ({ cliente, baseId, onClose, onSalvo }) => {
 
             {inp("observacao", "Observação", "Notas internas...")}
 
-            {/* Cobrança avançada — configuração customizada por cliente (opcional) */}
-            <div style={{ borderTop: "1px solid #1e3a5f", marginTop: 12, paddingTop: 12 }}>
-              <button
-                onClick={() => setMostrarConfigAvancada(v => !v)}
-                style={{
-                  width: "100%", textAlign: "left", background: "none", border: "none",
-                  color: "#64748b", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em",
-                  cursor: "pointer", padding: 0, marginBottom: mostrarConfigAvancada ? 10 : 0
-                }}
-              >
-                {mostrarConfigAvancada ? "▾" : "▸"} Cobrança avançada (opcional)
-              </button>
-
-              {mostrarConfigAvancada && (
-                <div>
-                  <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12 }}>
-                    Configure em quais dias, em relação ao vencimento, o sistema avisa os admins.
-                  </div>
-
-                  {(() => {
-                    const antes = offsets.filter(o => o < 0).sort((a, b) => b - a);
-                    const depois = offsets.filter(o => o >= 0).sort((a, b) => a - b);
-                    const ultimoDepois = depois[depois.length - 1];
-                    const remover = (o) => setOffsets(offsets.filter(x => x !== o));
-
-                    const Grupo = ({ titulo, cor, itens, descreve }) => (
-                      <div style={{ marginBottom: 12 }}>
-                        <div style={{ fontSize: 10, color: cor, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
-                          {titulo}
-                        </div>
-                        {itens.length === 0 ? (
-                          <div style={{ fontSize: 12, color: "#475569", fontStyle: "italic" }}>Nenhum dia configurado</div>
-                        ) : (
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                            {itens.map(o => {
-                              const destacado = o === ultimoDepois;
-                              return (
-                                <span key={o} style={{
-                                  display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
-                                  padding: "6px 10px", borderRadius: 8,
-                                  background: destacado ? "rgba(248,113,113,0.1)" : `${cor}1a`,
-                                  border: `1px solid ${destacado ? "rgba(248,113,113,0.35)" : cor + "40"}`,
-                                }}>
-                                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                    <span style={{ color: destacado ? "#f87171" : cor, fontSize: 13, fontWeight: 700 }}>
-                                      {o > 0 ? `+${o}` : o}d
-                                    </span>
-                                    <button
-                                      onClick={() => remover(o)}
-                                      style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 11, padding: 0 }}
-                                    >
-                                      ✕
-                                    </button>
-                                  </div>
-                                  <span style={{ fontSize: 9, color: destacado ? "#f87171" : "#64748b" }}>
-                                    {descreve(o, destacado)}
-                                  </span>
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-
-                    return (
-                      <>
-                        <Grupo
-                          titulo="🔔 Antes do vencimento"
-                          cor="#38bdf8"
-                          itens={antes}
-                          descreve={(o) => `${Math.abs(o)} dia(s) antes`}
-                        />
-                        <Grupo
-                          titulo="⚠️ Depois do vencimento (atraso)"
-                          cor="#f59e0b"
-                          itens={depois}
-                          descreve={(o, destacado) => destacado ? "risco de suspensão" : `${o} dia(s) de atraso`}
-                        />
-                      </>
-                    );
-                  })()}
-
-                  <div style={{ display: "flex", gap: 6, marginTop: 4, marginBottom: 10 }}>
-                    <input
-                      type="number"
-                      placeholder="Ex: -1 (antes) ou 4 (depois)"
-                      value={novoOffset}
-                      onChange={e => setNovoOffset(e.target.value)}
-                      style={{
-                        flex: 1, padding: "8px 12px", borderRadius: 8, border: "1px solid #1e3a5f",
-                        background: "#0d1a2e", color: "#e2e8f0", fontSize: 13, boxSizing: "border-box"
-                      }}
-                    />
-                    <button
-                      onClick={() => {
-                        const n = parseInt(novoOffset);
-                        if (!isNaN(n) && !offsets.includes(n)) setOffsets([...offsets, n].sort((a, b) => a - b));
-                        setNovoOffset("");
-                      }}
-                      style={{
-                        padding: "8px 14px", borderRadius: 8, border: "none",
-                        background: "rgba(56,189,248,0.15)", color: "#38bdf8", fontWeight: 700, cursor: "pointer", fontSize: 13
-                      }}
-                    >
-                      + Add
-                    </button>
-                  </div>
-
-                  {configMsg && (
-                    <div style={{
-                      padding: "8px 12px", borderRadius: 7, marginBottom: 8, fontSize: 12,
-                      background: configMsg.ok ? "rgba(34,197,94,.08)" : "rgba(239,68,68,.08)",
-                      border: `1px solid ${configMsg.ok ? "rgba(34,197,94,.25)" : "rgba(239,68,68,.25)"}`,
-                      color: configMsg.ok ? "#4ade80" : "#f87171"
-                    }}>
-                      {configMsg.txt}
-                    </div>
-                  )}
-
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      onClick={salvarConfigAvancada}
-                      disabled={salvandoConfig}
-                      style={{
-                        flex: 1, padding: "9px 0", borderRadius: 8, border: "none",
-                        background: salvandoConfig ? "#1e3a5f" : "#2563eb", color: "#fff",
-                        fontWeight: 600, fontSize: 13, cursor: salvandoConfig ? "not-allowed" : "pointer"
-                      }}
-                    >
-                      {salvandoConfig ? "Salvando..." : "💾 Salvar config"}
-                    </button>
-                    {!!cliente.config_cobranca && (
-                      <button
-                        onClick={removerConfigAvancada}
-                        disabled={salvandoConfig}
-                        style={{
-                          padding: "9px 14px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.3)",
-                          background: "transparent", color: "#f87171", fontWeight: 600, fontSize: 13, cursor: "pointer"
-                        }}
-                      >
-                        Remover
-                      </button>
-                    )}
-                  </div>
-
-                  {cobrarMsg && (
-                    <div style={{
-                      padding: "8px 12px", borderRadius: 7, marginTop: 8, marginBottom: 8, fontSize: 12,
-                      background: cobrarMsg.ok ? "rgba(34,197,94,.08)" : "rgba(239,68,68,.08)",
-                      border: `1px solid ${cobrarMsg.ok ? "rgba(34,197,94,.25)" : "rgba(239,68,68,.25)"}`,
-                      color: cobrarMsg.ok ? "#4ade80" : "#f87171"
-                    }}>
-                      {cobrarMsg.txt}
-                    </div>
-                  )}
-                  <button
-                    onClick={cobrarAgora}
-                    disabled={cobrandoAgora}
-                    style={{
-                      width: "100%", marginTop: 8, padding: "9px 0", borderRadius: 8,
-                      border: "1px solid rgba(74,222,128,0.3)", background: "rgba(74,222,128,0.08)",
-                      color: "#4ade80", fontWeight: 700, fontSize: 13, cursor: cobrandoAgora ? "not-allowed" : "pointer"
-                    }}
-                  >
-                    {cobrandoAgora ? "Enviando..." : "📤 Cobrar agora"}
-                  </button>
-                </div>
-              )}
-            </div>
-
             {/* Solicitar carnê direto da ficha */}
             <div style={{ borderTop: "1px solid #1e3a5f", marginTop: 12, paddingTop: 12 }}>
               {carneMsg && (
@@ -579,6 +408,164 @@ export const ModalEditarCliente = ({ cliente, baseId, onClose, onSalvo }) => {
                 onSalvo({ ...cliente, status: novoStatus });
               }}
             />
+          </div>
+        )}
+
+        {aba === "cobranca" && (
+          <div>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12 }}>
+              Configure em quais dias, em relação ao vencimento, o sistema avisa os admins.
+              Sem configuração, o cliente segue o calendário padrão (10/20/30 + 5 dias).
+            </div>
+
+            {(() => {
+              const antes = offsets.filter(o => o < 0).sort((a, b) => b - a);
+              const depois = offsets.filter(o => o >= 0).sort((a, b) => a - b);
+              const ultimoDepois = depois[depois.length - 1];
+              const remover = (o) => setOffsets(offsets.filter(x => x !== o));
+
+              const Grupo = ({ titulo, cor, itens, descreve }) => (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, color: cor, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                    {titulo}
+                  </div>
+                  {itens.length === 0 ? (
+                    <div style={{ fontSize: 12, color: "#475569", fontStyle: "italic" }}>Nenhum dia configurado</div>
+                  ) : (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {itens.map(o => {
+                        const destacado = o === ultimoDepois;
+                        return (
+                          <span key={o} style={{
+                            display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                            padding: "6px 10px", borderRadius: 8,
+                            background: destacado ? "rgba(248,113,113,0.1)" : `${cor}1a`,
+                            border: `1px solid ${destacado ? "rgba(248,113,113,0.35)" : cor + "40"}`,
+                          }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ color: destacado ? "#f87171" : cor, fontSize: 13, fontWeight: 700 }}>
+                                {o > 0 ? `+${o}` : o}d
+                              </span>
+                              <button
+                                onClick={() => remover(o)}
+                                style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 11, padding: 0 }}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                            <span style={{ fontSize: 9, color: destacado ? "#f87171" : "#64748b" }}>
+                              {descreve(o, destacado)}
+                            </span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+
+              return (
+                <>
+                  <Grupo
+                    titulo="🔔 Antes do vencimento"
+                    cor="#38bdf8"
+                    itens={antes}
+                    descreve={(o) => `${Math.abs(o)} dia(s) antes`}
+                  />
+                  <Grupo
+                    titulo="⚠️ Depois do vencimento (atraso)"
+                    cor="#f59e0b"
+                    itens={depois}
+                    descreve={(o, destacado) => destacado ? "risco de suspensão" : `${o} dia(s) de atraso`}
+                  />
+                </>
+              );
+            })()}
+
+            <div style={{ display: "flex", gap: 6, marginTop: 4, marginBottom: 10 }}>
+              <input
+                type="number"
+                placeholder="Ex: -1 (antes) ou 4 (depois)"
+                value={novoOffset}
+                onChange={e => setNovoOffset(e.target.value)}
+                style={{
+                  flex: 1, padding: "8px 12px", borderRadius: 8, border: "1px solid #1e3a5f",
+                  background: "#0d1a2e", color: "#e2e8f0", fontSize: 13, boxSizing: "border-box"
+                }}
+              />
+              <button
+                onClick={() => {
+                  const n = parseInt(novoOffset);
+                  if (!isNaN(n) && !offsets.includes(n)) setOffsets([...offsets, n].sort((a, b) => a - b));
+                  setNovoOffset("");
+                }}
+                style={{
+                  padding: "8px 14px", borderRadius: 8, border: "none",
+                  background: "rgba(56,189,248,0.15)", color: "#38bdf8", fontWeight: 700, cursor: "pointer", fontSize: 13
+                }}
+              >
+                + Add
+              </button>
+            </div>
+
+            {configMsg && (
+              <div style={{
+                padding: "8px 12px", borderRadius: 7, marginBottom: 8, fontSize: 12,
+                background: configMsg.ok ? "rgba(34,197,94,.08)" : "rgba(239,68,68,.08)",
+                border: `1px solid ${configMsg.ok ? "rgba(34,197,94,.25)" : "rgba(239,68,68,.25)"}`,
+                color: configMsg.ok ? "#4ade80" : "#f87171"
+              }}>
+                {configMsg.txt}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={salvarConfigAvancada}
+                disabled={salvandoConfig}
+                style={{
+                  flex: 1, padding: "9px 0", borderRadius: 8, border: "none",
+                  background: salvandoConfig ? "#1e3a5f" : "#2563eb", color: "#fff",
+                  fontWeight: 600, fontSize: 13, cursor: salvandoConfig ? "not-allowed" : "pointer"
+                }}
+              >
+                {salvandoConfig ? "Salvando..." : "💾 Salvar config"}
+              </button>
+              {!!cliente.config_cobranca && (
+                <button
+                  onClick={removerConfigAvancada}
+                  disabled={salvandoConfig}
+                  style={{
+                    padding: "9px 14px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.3)",
+                    background: "transparent", color: "#f87171", fontWeight: 600, fontSize: 13, cursor: "pointer"
+                  }}
+                >
+                  Remover
+                </button>
+              )}
+            </div>
+
+            {cobrarMsg && (
+              <div style={{
+                padding: "8px 12px", borderRadius: 7, marginTop: 8, marginBottom: 8, fontSize: 12,
+                background: cobrarMsg.ok ? "rgba(34,197,94,.08)" : "rgba(239,68,68,.08)",
+                border: `1px solid ${cobrarMsg.ok ? "rgba(34,197,94,.25)" : "rgba(239,68,68,.25)"}`,
+                color: cobrarMsg.ok ? "#4ade80" : "#f87171"
+              }}>
+                {cobrarMsg.txt}
+              </div>
+            )}
+            <button
+              onClick={cobrarAgora}
+              disabled={cobrandoAgora}
+              style={{
+                width: "100%", marginTop: 8, padding: "9px 0", borderRadius: 8,
+                border: "1px solid rgba(74,222,128,0.3)", background: "rgba(74,222,128,0.08)",
+                color: "#4ade80", fontWeight: 700, fontSize: 13, cursor: cobrandoAgora ? "not-allowed" : "pointer"
+              }}
+            >
+              {cobrandoAgora ? "Enviando..." : "📤 Cobrar agora"}
+            </button>
           </div>
         )}
 

@@ -17,6 +17,7 @@ export const ModalNovoClienteBase = ({ baseId, diaDefault, onClose, onSalvo }) =
   });
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState(null);
+  const [diaOutro, setDiaOutro] = useState(!["10","20","30"].includes(String(diaDefault || 10)) ? String(diaDefault || "") : "");
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -124,15 +125,15 @@ export const ModalNovoClienteBase = ({ baseId, diaDefault, onClose, onSalvo }) =
             {["10", "20", "30"].map(d => (
               <button
                 key={d}
-                onClick={() => set("dia_vencimento", d)}
+                onClick={() => { set("dia_vencimento", d); setDiaOutro(""); }}
                 style={{
                   flex: 1,
                   padding: "9px 0",
                   borderRadius: 8,
                   border: "1px solid",
-                  borderColor: form.dia_vencimento === d ? "#38bdf8" : "#1e3a5f",
-                  background: form.dia_vencimento === d ? "rgba(56,189,248,0.12)" : "transparent",
-                  color: form.dia_vencimento === d ? "#38bdf8" : "#64748b",
+                  borderColor: form.dia_vencimento === d && !diaOutro ? "#38bdf8" : "#1e3a5f",
+                  background: form.dia_vencimento === d && !diaOutro ? "rgba(56,189,248,0.12)" : "transparent",
+                  color: form.dia_vencimento === d && !diaOutro ? "#38bdf8" : "#64748b",
                   fontWeight: 700,
                   cursor: "pointer"
                 }}
@@ -140,6 +141,27 @@ export const ModalNovoClienteBase = ({ baseId, diaDefault, onClose, onSalvo }) =
                 Dia {d}
               </button>
             ))}
+            <input
+              type="number"
+              min="1"
+              max="31"
+              placeholder="Outro"
+              value={diaOutro}
+              onChange={e => { setDiaOutro(e.target.value); if (e.target.value) set("dia_vencimento", e.target.value); }}
+              style={{
+                flex: 1,
+                padding: "9px 0",
+                borderRadius: 8,
+                textAlign: "center",
+                border: "1px solid",
+                borderColor: diaOutro ? "#38bdf8" : "#1e3a5f",
+                background: diaOutro ? "rgba(56,189,248,0.12)" : "#0d1a2e",
+                color: diaOutro ? "#38bdf8" : "#e2e8f0",
+                fontWeight: 700,
+                fontSize: 13,
+                boxSizing: "border-box"
+              }}
+            />
           </div>
         </div>
 
