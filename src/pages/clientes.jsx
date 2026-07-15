@@ -35,7 +35,7 @@ export function PageClientes({ onBasesCarregadas }) {
     const params = new URLSearchParams(location.search);
     const baseId = params.get("base");
     const acao = params.get("acao");
-    if (baseId && bases) setBaseAtiva(parseInt(baseId));
+    if (baseId && bases) setBaseAtiva(baseId);
     if (acao === "nova") setModalCriar(true);
   }, [location.search, bases]);
 
