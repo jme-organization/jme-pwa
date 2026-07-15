@@ -370,32 +370,78 @@ export const ModalEditarCliente = ({ cliente, baseId, onClose, onSalvo }) => {
 
               {mostrarConfigAvancada && (
                 <div>
-                  <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 10 }}>
-                    Dias de aviso relativos ao vencimento (negativo = antes, positivo = depois).
-                    O último número é tratado como risco de suspensão.
+                  <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12 }}>
+                    Configure em quais dias, em relação ao vencimento, o sistema avisa os admins.
                   </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-                    {offsets.map((o, i) => (
-                      <span key={i} style={{
-                        display: "flex", alignItems: "center", gap: 6,
-                        padding: "5px 10px", borderRadius: 6,
-                        background: "rgba(56,189,248,0.1)", border: "1px solid rgba(56,189,248,0.25)",
-                        color: "#38bdf8", fontSize: 12, fontWeight: 700
-                      }}>
-                        {o > 0 ? `+${o}` : o}
-                        <button
-                          onClick={() => setOffsets(offsets.filter((_, idx) => idx !== i))}
-                          style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 12, padding: 0 }}
-                        >
-                          ✕
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                  <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+
+                  {(() => {
+                    const antes = offsets.filter(o => o < 0).sort((a, b) => b - a);
+                    const depois = offsets.filter(o => o >= 0).sort((a, b) => a - b);
+                    const ultimoDepois = depois[depois.length - 1];
+                    const remover = (o) => setOffsets(offsets.filter(x => x !== o));
+
+                    const Grupo = ({ titulo, cor, itens, descreve }) => (
+                      <div style={{ marginBottom: 12 }}>
+                        <div style={{ fontSize: 10, color: cor, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                          {titulo}
+                        </div>
+                        {itens.length === 0 ? (
+                          <div style={{ fontSize: 12, color: "#475569", fontStyle: "italic" }}>Nenhum dia configurado</div>
+                        ) : (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                            {itens.map(o => {
+                              const destacado = o === ultimoDepois;
+                              return (
+                                <span key={o} style={{
+                                  display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                                  padding: "6px 10px", borderRadius: 8,
+                                  background: destacado ? "rgba(248,113,113,0.1)" : `${cor}1a`,
+                                  border: `1px solid ${destacado ? "rgba(248,113,113,0.35)" : cor + "40"}`,
+                                }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    <span style={{ color: destacado ? "#f87171" : cor, fontSize: 13, fontWeight: 700 }}>
+                                      {o > 0 ? `+${o}` : o}d
+                                    </span>
+                                    <button
+                                      onClick={() => remover(o)}
+                                      style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 11, padding: 0 }}
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                  <span style={{ fontSize: 9, color: destacado ? "#f87171" : "#64748b" }}>
+                                    {descreve(o, destacado)}
+                                  </span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+
+                    return (
+                      <>
+                        <Grupo
+                          titulo="🔔 Antes do vencimento"
+                          cor="#38bdf8"
+                          itens={antes}
+                          descreve={(o) => `${Math.abs(o)} dia(s) antes`}
+                        />
+                        <Grupo
+                          titulo="⚠️ Depois do vencimento (atraso)"
+                          cor="#f59e0b"
+                          itens={depois}
+                          descreve={(o, destacado) => destacado ? "risco de suspensão" : `${o} dia(s) de atraso`}
+                        />
+                      </>
+                    );
+                  })()}
+
+                  <div style={{ display: "flex", gap: 6, marginTop: 4, marginBottom: 10 }}>
                     <input
                       type="number"
-                      placeholder="Ex: 4"
+                      placeholder="Ex: -1 (antes) ou 4 (depois)"
                       value={novoOffset}
                       onChange={e => setNovoOffset(e.target.value)}
                       style={{
