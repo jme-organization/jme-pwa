@@ -17,17 +17,15 @@ function getSSE() {
     // Se já existe conexão saudável, apenas incrementa referência
     if (_es && _es.readyState === EventSource.OPEN) {
         _refCount++;
-        console.log(`📡 SSE: reutilizando conexão (refs: ${_refCount})`);
         return _es;
     }
-    
+
     // Se existe mas está fechando, limpa
     if (_es) {
         _es.close();
         _es = null;
     }
 
-    console.log(`📡 SSE: criando nova conexão (delay: ${_reconectDelay/1000}s)`);
     _es = new EventSource(API + '/api/status-stream');
     _refCount = 1;
 
@@ -41,7 +39,6 @@ function getSSE() {
 
     _es.addEventListener('open', () => {
         _reconectDelay = 5000;
-        console.log('📡 SSE: conectado (backoff resetado)');
     });
 
     _es.onerror = () => {
@@ -65,10 +62,8 @@ function getSSE() {
 
 function releaseSSE() {
     _refCount--;
-    console.log(`📡 SSE: liberando referência (refs restantes: ${_refCount})`);
-    
+
     if (_refCount <= 0 && _es) {
-        console.log('📡 SSE: fechando conexão (sem referências)');
         _es.close();
         _es = null;
         _refCount = 0;

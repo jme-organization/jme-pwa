@@ -179,13 +179,11 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
   const s = stats(clientesDia);
   const stotal = stats(clientes);
 
-  const onSalvo = (clienteAtualizado) => {
-    if (clienteAtualizado.status === 'cancelado') {
-      setClientes(prev => prev.filter(c => c.id !== clienteAtualizado.id));
-      setModalCliente(null);
-    } else {
-      setClientes(prev => prev.map(c => c.id === clienteAtualizado.id ? { ...c, ...clienteAtualizado } : c));
-    }
+  const onSalvo = () => {
+    // Refetch em vez de merge local — status_calculado e outros campos
+    // derivados so vem certo do backend, merge raso deixava a tela
+    // desatualizada ate dar F5. O modal controla o proprio onClose.
+    carregar(true);
   };
 
   const exportarExcel = async () => {
@@ -572,9 +570,9 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
           baseId={base.id}
           diaDefault={diaAtivo}
           onClose={() => setModalNovoCliente(false)}
-          onSalvo={(novo) => {
-            setClientes(prev => [...prev, novo]);
+          onSalvo={() => {
             setModalNovoCliente(false);
+            carregar(true);
           }}
         />
       )}

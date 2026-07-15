@@ -21,6 +21,14 @@ export const ModalEditarCliente = ({ cliente, baseId, onClose, onSalvo }) => {
   });
 
   const [aba, setAba] = useState("dados");
+  const [diaOutro, setDiaOutro] = useState(!["10","20","30"].includes(String(cliente.dia_vencimento)) ? String(cliente.dia_vencimento || "") : "");
+  const [mostrarConfigAvancada, setMostrarConfigAvancada] = useState(!!cliente.config_cobranca);
+  const [offsets, setOffsets] = useState(cliente.config_cobranca?.offsets?.length ? cliente.config_cobranca.offsets : [-1, 1, 3, 5, 7, 9]);
+  const [novoOffset, setNovoOffset] = useState("");
+  const [salvandoConfig, setSalvandoConfig] = useState(false);
+  const [configMsg, setConfigMsg] = useState(null);
+  const [cobrandoAgora, setCobrandoAgora] = useState(false);
+  const [cobrarMsg, setCobrarMsg] = useState(null);
   const [solicitandoCarne, setSolicitandoCarne] = useState(false);
   const [carneMsg, setCarneMsg] = useState(null);
   const [salvando, setSalvando] = useState(false);
@@ -114,6 +122,54 @@ export const ModalEditarCliente = ({ cliente, baseId, onClose, onSalvo }) => {
       setPromMsg({ ok: false, txt: e.message || "Falha de conexão" });
     }
     setSalvandoProm(false);
+  };
+
+  const salvarConfigAvancada = async () => {
+    if (!offsets.length) {
+      setConfigMsg({ ok: false, txt: "Adicione pelo menos um dia de aviso" });
+      return;
+    }
+    setSalvandoConfig(true);
+    setConfigMsg(null);
+    try {
+      const json = await api.put(`/api/bases/${baseId}/clientes/${cliente.id}/config-cobranca`, { offsets });
+      if (json.ok) {
+        setConfigMsg({ ok: true, txt: "✅ Configuração salva!" });
+      } else {
+        setConfigMsg({ ok: false, txt: json.erro || "Erro ao salvar" });
+      }
+    } catch (e) {
+      setConfigMsg({ ok: false, txt: e.message || "Falha de conexão" });
+    }
+    setSalvandoConfig(false);
+  };
+
+  const removerConfigAvancada = async () => {
+    if (!confirm("Remover config customizada? Volta a usar o calendário padrão (10/20/30).")) return;
+    setSalvandoConfig(true);
+    try {
+      await api.put(`/api/bases/${baseId}/clientes/${cliente.id}/config-cobranca`, {});
+      setConfigMsg({ ok: true, txt: "Config removida, cliente voltou ao padrão." });
+      setOffsets([-1, 1, 3, 5, 7, 9]);
+    } catch (e) {
+      setConfigMsg({ ok: false, txt: e.message || "Falha de conexão" });
+    }
+    setSalvandoConfig(false);
+  };
+
+  const cobrarAgora = async () => {
+    if (!confirm(`Enviar mensagem de cobrança agora pra ${form.nome}?`)) return;
+    setCobrandoAgora(true);
+    setCobrarMsg(null);
+    try {
+      const json = await api.post(`/api/clientes/${cliente.id}/cobrar-individual`, { offset: offsets[offsets.length - 1] ?? 0 });
+      setCobrarMsg(json.ok
+        ? { ok: true, txt: "✅ Mensagem enviada!" }
+        : { ok: false, txt: json.erro || "Erro ao enviar" });
+    } catch (e) {
+      setCobrarMsg({ ok: false, txt: e.message || "Falha de conexão" });
+    }
+    setCobrandoAgora(false);
   };
 
   const toggleStatus = async () => {
@@ -257,15 +313,15 @@ export const ModalEditarCliente = ({ cliente, baseId, onClose, onSalvo }) => {
                 {["10", "20", "30"].map(d => (
                   <button
                     key={d}
-                    onClick={() => set("dia_vencimento", d)}
+                    onClick={() => { set("dia_vencimento", d); setDiaOutro(""); }}
                     style={{
                       flex: 1,
                       padding: "9px 0",
                       borderRadius: 8,
                       border: "1px solid",
-                      borderColor: form.dia_vencimento === d ? "#38bdf8" : "#1e3a5f",
-                      background: form.dia_vencimento === d ? "rgba(56,189,248,0.12)" : "transparent",
-                      color: form.dia_vencimento === d ? "#38bdf8" : "#64748b",
+                      borderColor: form.dia_vencimento === d && !diaOutro ? "#38bdf8" : "#1e3a5f",
+                      background: form.dia_vencimento === d && !diaOutro ? "rgba(56,189,248,0.12)" : "transparent",
+                      color: form.dia_vencimento === d && !diaOutro ? "#38bdf8" : "#64748b",
                       fontWeight: 700,
                       cursor: "pointer"
                     }}
@@ -273,10 +329,156 @@ export const ModalEditarCliente = ({ cliente, baseId, onClose, onSalvo }) => {
                     Dia {d}
                   </button>
                 ))}
+                <input
+                  type="number"
+                  min="1"
+                  max="31"
+                  placeholder="Outro"
+                  value={diaOutro}
+                  onChange={e => { setDiaOutro(e.target.value); if (e.target.value) set("dia_vencimento", e.target.value); }}
+                  style={{
+                    flex: 1,
+                    padding: "9px 0",
+                    borderRadius: 8,
+                    textAlign: "center",
+                    border: "1px solid",
+                    borderColor: diaOutro ? "#38bdf8" : "#1e3a5f",
+                    background: diaOutro ? "rgba(56,189,248,0.12)" : "#0d1a2e",
+                    color: diaOutro ? "#38bdf8" : "#e2e8f0",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    boxSizing: "border-box"
+                  }}
+                />
               </div>
             </div>
 
             {inp("observacao", "Observação", "Notas internas...")}
+
+            {/* Cobrança avançada — configuração customizada por cliente (opcional) */}
+            <div style={{ borderTop: "1px solid #1e3a5f", marginTop: 12, paddingTop: 12 }}>
+              <button
+                onClick={() => setMostrarConfigAvancada(v => !v)}
+                style={{
+                  width: "100%", textAlign: "left", background: "none", border: "none",
+                  color: "#64748b", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em",
+                  cursor: "pointer", padding: 0, marginBottom: mostrarConfigAvancada ? 10 : 0
+                }}
+              >
+                {mostrarConfigAvancada ? "▾" : "▸"} Cobrança avançada (opcional)
+              </button>
+
+              {mostrarConfigAvancada && (
+                <div>
+                  <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 10 }}>
+                    Dias de aviso relativos ao vencimento (negativo = antes, positivo = depois).
+                    O último número é tratado como risco de suspensão.
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+                    {offsets.map((o, i) => (
+                      <span key={i} style={{
+                        display: "flex", alignItems: "center", gap: 6,
+                        padding: "5px 10px", borderRadius: 6,
+                        background: "rgba(56,189,248,0.1)", border: "1px solid rgba(56,189,248,0.25)",
+                        color: "#38bdf8", fontSize: 12, fontWeight: 700
+                      }}>
+                        {o > 0 ? `+${o}` : o}
+                        <button
+                          onClick={() => setOffsets(offsets.filter((_, idx) => idx !== i))}
+                          style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 12, padding: 0 }}
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                    <input
+                      type="number"
+                      placeholder="Ex: 4"
+                      value={novoOffset}
+                      onChange={e => setNovoOffset(e.target.value)}
+                      style={{
+                        flex: 1, padding: "8px 12px", borderRadius: 8, border: "1px solid #1e3a5f",
+                        background: "#0d1a2e", color: "#e2e8f0", fontSize: 13, boxSizing: "border-box"
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        const n = parseInt(novoOffset);
+                        if (!isNaN(n) && !offsets.includes(n)) setOffsets([...offsets, n].sort((a, b) => a - b));
+                        setNovoOffset("");
+                      }}
+                      style={{
+                        padding: "8px 14px", borderRadius: 8, border: "none",
+                        background: "rgba(56,189,248,0.15)", color: "#38bdf8", fontWeight: 700, cursor: "pointer", fontSize: 13
+                      }}
+                    >
+                      + Add
+                    </button>
+                  </div>
+
+                  {configMsg && (
+                    <div style={{
+                      padding: "8px 12px", borderRadius: 7, marginBottom: 8, fontSize: 12,
+                      background: configMsg.ok ? "rgba(34,197,94,.08)" : "rgba(239,68,68,.08)",
+                      border: `1px solid ${configMsg.ok ? "rgba(34,197,94,.25)" : "rgba(239,68,68,.25)"}`,
+                      color: configMsg.ok ? "#4ade80" : "#f87171"
+                    }}>
+                      {configMsg.txt}
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={salvarConfigAvancada}
+                      disabled={salvandoConfig}
+                      style={{
+                        flex: 1, padding: "9px 0", borderRadius: 8, border: "none",
+                        background: salvandoConfig ? "#1e3a5f" : "#2563eb", color: "#fff",
+                        fontWeight: 600, fontSize: 13, cursor: salvandoConfig ? "not-allowed" : "pointer"
+                      }}
+                    >
+                      {salvandoConfig ? "Salvando..." : "💾 Salvar config"}
+                    </button>
+                    {!!cliente.config_cobranca && (
+                      <button
+                        onClick={removerConfigAvancada}
+                        disabled={salvandoConfig}
+                        style={{
+                          padding: "9px 14px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.3)",
+                          background: "transparent", color: "#f87171", fontWeight: 600, fontSize: 13, cursor: "pointer"
+                        }}
+                      >
+                        Remover
+                      </button>
+                    )}
+                  </div>
+
+                  {cobrarMsg && (
+                    <div style={{
+                      padding: "8px 12px", borderRadius: 7, marginTop: 8, marginBottom: 8, fontSize: 12,
+                      background: cobrarMsg.ok ? "rgba(34,197,94,.08)" : "rgba(239,68,68,.08)",
+                      border: `1px solid ${cobrarMsg.ok ? "rgba(34,197,94,.25)" : "rgba(239,68,68,.25)"}`,
+                      color: cobrarMsg.ok ? "#4ade80" : "#f87171"
+                    }}>
+                      {cobrarMsg.txt}
+                    </div>
+                  )}
+                  <button
+                    onClick={cobrarAgora}
+                    disabled={cobrandoAgora}
+                    style={{
+                      width: "100%", marginTop: 8, padding: "9px 0", borderRadius: 8,
+                      border: "1px solid rgba(74,222,128,0.3)", background: "rgba(74,222,128,0.08)",
+                      color: "#4ade80", fontWeight: 700, fontSize: 13, cursor: cobrandoAgora ? "not-allowed" : "pointer"
+                    }}
+                  >
+                    {cobrandoAgora ? "Enviando..." : "📤 Cobrar agora"}
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* Solicitar carnê direto da ficha */}
             <div style={{ borderTop: "1px solid #1e3a5f", marginTop: 12, paddingTop: 12 }}>

@@ -24,6 +24,10 @@ export function PageCobranca() {
   const [disparando, setDisparando] = useState(false);
   const [resultado, setResultado] = useState(null);
   const [modalConfirm, setModalConfirm] = useState(null); // null | { data, tipo }
+  const [buscaLog, setBuscaLog] = useState("");
+  const [logExpandido, setLogExpandido] = useState(null);
+
+  const labelTipo = (t) => TIPOS_COBRANCA.find(o => o.value === t)?.label || t || "—";
 
   const pedirConfirmacao = () => {
     setModalConfirm({ data, tipo: tipo || 'automático' });
@@ -202,26 +206,52 @@ export function PageCobranca() {
       </div>
 
       <Card style={{ padding: "1.5rem" }}>
-        <div style={{ fontWeight: 700, color: "#e2e8f0", marginBottom: "1rem", fontSize: 15 }}>
-          📋 Últimas Cobranças Enviadas
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: "1rem" }}>
+          <div style={{ fontWeight: 700, color: "#e2e8f0", fontSize: 15 }}>
+            📋 Últimas Cobranças Enviadas
+          </div>
+          <input
+            placeholder="Buscar por nome..."
+            value={buscaLog}
+            onChange={e => setBuscaLog(e.target.value)}
+            style={{
+              padding: "6px 12px", borderRadius: 7, border: "1px solid #2d3148",
+              background: "#0f1117", color: "#e2e8f0", fontSize: 13, minWidth: 180
+            }}
+          />
         </div>
         <div className="tabela-scroll">
           <table className="tabela">
             <thead>
-              <tr><th>Nome</th><th>Vencimento</th><th>Enviado em</th></tr>
+              <tr><th>Nome</th><th>Vencimento</th><th>Tipo</th><th>Enviado em</th></tr>
             </thead>
             <tbody>
-              {!logs?.length ? (
-                <tr><td colSpan={3} className="td-empty">Nenhum registro</td></tr>
-              ) : (
-                logs.map((r, i) => (
-                  <tr key={i}>
-                    <td className="td-nome">{r.nome}</td>
-                    <td>Dia {r.data_vencimento}</td>
-                    <td className="td-muted">{fmtDate(r.enviado_em)}</td>
-                  </tr>
-                ))
-              )}
+              {(() => {
+                const filtrados = (logs || []).filter(r =>
+                  !buscaLog || (r.nome || "").toLowerCase().includes(buscaLog.toLowerCase())
+                );
+                if (!filtrados.length) return <tr><td colSpan={4} className="td-empty">Nenhum registro</td></tr>;
+                return filtrados.map((r, i) => (
+                  <React.Fragment key={i}>
+                    <tr
+                      onClick={() => r.mensagem && setLogExpandido(logExpandido === i ? null : i)}
+                      style={{ cursor: r.mensagem ? "pointer" : "default" }}
+                    >
+                      <td className="td-nome">{r.nome}</td>
+                      <td>Dia {r.data_vencimento}</td>
+                      <td>{labelTipo(r.tipo)}</td>
+                      <td className="td-muted">{fmtDate(r.enviado_em)}</td>
+                    </tr>
+                    {logExpandido === i && r.mensagem && (
+                      <tr>
+                        <td colSpan={4} style={{ background: "#0d1a2e", padding: "10px 14px", whiteSpace: "pre-wrap", fontSize: 12, color: "#94a3b8" }}>
+                          {r.mensagem}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ));
+              })()}
             </tbody>
           </table>
         </div>

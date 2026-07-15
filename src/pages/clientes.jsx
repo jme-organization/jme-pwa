@@ -72,12 +72,12 @@ export function PageClientes({ onBasesCarregadas }) {
   // Se uma base específica foi selecionada, mostra o visualizador
   if (baseAtiva) {
     const base = basesExibir.find(b => b.id === baseAtiva);
-    if (!base) { 
-      setBaseAtiva(null); 
-      return null; 
+    if (!base) {
+      setBaseAtiva(null);
+      return null;
     }
     // Usa o mesmo visualizador para TODAS as bases
-    return <VisualizadorBase base={base} onVoltar={() => setBaseAtiva(null)} />;
+    return <VisualizadorBase base={base} onVoltar={() => navigate('/clientes')} />;
   }
 
   // Tela de listagem de bases
@@ -141,9 +141,9 @@ export function PageClientes({ onBasesCarregadas }) {
             const isJME = base.nome === "JME";
             
             return (
-              <Card 
-                key={base.id} 
-                onClick={() => setBaseAtiva(base.id)} 
+              <Card
+                key={base.id}
+                onClick={() => navigate(`/clientes?base=${base.id}`)}
                 style={{ 
                   cursor: "pointer", 
                   padding: 0,
@@ -258,12 +258,13 @@ export function PageClientes({ onBasesCarregadas }) {
 
       {/* Modal de criação de base */}
       {modalCriar && (
-        <ModalCriarBase 
-          onClose={() => setModalCriar(false)} 
+        <ModalCriarBase
+          onClose={() => { setModalCriar(false); navigate('/clientes'); }}
           onCriada={() => {
             carregarBases();
             setModalCriar(false);
-          }} 
+            navigate('/clientes');
+          }}
         />
       )}
     </div>
