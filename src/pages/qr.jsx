@@ -27,7 +27,9 @@ export function PageQR({ status }) {
     if (status?.online) setForceOffline(false);
   }, [status?.online]);
 
-  // Polling do QR quando offline
+  // Carrega QR reagindo ao evento real do backend (SSE: status.qrTs muda a
+  // cada QR novo gerado pelo WhatsApp) — evita mostrar QR velho/expirado
+  // que o polling cego em intervalo fixo causava.
   useEffect(() => {
     if (online || escaneando) {
       setQrUrl(null);
@@ -35,14 +37,20 @@ export function PageQR({ status }) {
       return;
     }
 
-    const carregarQR = () => {
+    setQrErro(false);
+    setQrUrl(`${API}/qr?t=${Date.now()}${ADMIN_KEY ? `&k=${encodeURIComponent(ADMIN_KEY)}` : ''}`);
+    setCountdown(QR_INTERVALO / 1000);
+  }, [online, escaneando, status?.qrTs]);
+
+  // Fallback: se por algum motivo o SSE não avisar (reconexão, evento perdido),
+  // recarrega mesmo assim depois de um tempo maior que o ciclo real do QR.
+  useEffect(() => {
+    if (online || escaneando) return;
+    const t = setInterval(() => {
       setQrErro(false);
       setQrUrl(`${API}/qr?t=${Date.now()}${ADMIN_KEY ? `&k=${encodeURIComponent(ADMIN_KEY)}` : ''}`);
       setCountdown(QR_INTERVALO / 1000);
-    };
-
-    carregarQR();
-    const t = setInterval(carregarQR, QR_INTERVALO);
+    }, QR_INTERVALO * 1.5);
     return () => clearInterval(t);
   }, [online, escaneando]);
 
