@@ -1,3 +1,5 @@
+@AGENTS.md
+
 # CLAUDE.md — JME-BOT Frontend
 
 ## O que é este projeto
