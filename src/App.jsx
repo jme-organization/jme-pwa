@@ -6,6 +6,8 @@ import { TopNav } from './components/TopNav';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { PageLogin } from './pages/login';
 
 // Pages
 import { PageQR } from './pages/qr';
@@ -112,11 +114,30 @@ function AppContent() {
   );
 }
 
+// Porta de entrada: sem token valido, o painel inteiro nao monta. Antes nao
+// havia porta nenhuma — a pagina abria pra qualquer um e a chave de admin ia
+// junto no bundle.
+function AppComAuth() {
+  const { autenticado, carregando } = useAuth();
+
+  if (carregando) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a', color: '#94a3b8' }}>
+        Carregando…
+      </div>
+    );
+  }
+
+  return autenticado ? <AppContent /> : <PageLogin />;
+}
+
 export default function App() {
   return (
     <ThemeProvider>
       <NotificationProvider>
-        <AppContent />
+        <AuthProvider>
+          <AppComAuth />
+        </AuthProvider>
       </NotificationProvider>
     </ThemeProvider>
   );

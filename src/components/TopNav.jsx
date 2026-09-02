@@ -7,6 +7,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { NotificationBell } from './NotificationBell';
 import { BackupButton } from './BackupButton';
 import { api } from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 
 export const TopNav = ({ botAtivo, onToggle, bases }) => {
   const { data: horario, refetch: refetchHorario } = useFetch("/api/horario");
@@ -21,6 +22,7 @@ export const TopNav = ({ botAtivo, onToggle, bases }) => {
   const [maisAberto, setMaisAberto] = useState(false);
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
+  const { sair } = useAuth();
 
   useEffect(() => {
     if (horario) {
@@ -515,6 +517,15 @@ export const TopNav = ({ botAtivo, onToggle, bases }) => {
             title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
           >
             {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
+
+          {/* SAIR — sem isto nao ha como encerrar a sessao num aparelho emprestado */}
+          <button
+            className="theme-toggle"
+            onClick={sair}
+            title="Sair do painel"
+          >
+            🚪
           </button>
 
           <div className="horario-dropdown-wrap">

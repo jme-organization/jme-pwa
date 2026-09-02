@@ -6,10 +6,13 @@ const API = import.meta.env.VITE_API_URL || "";
 
 const QR_INTERVALO = 20000; // ms entre refreshes do QR
 const SCAN_TIMEOUT = 180000; // ms esperando conexão após scan — VPS pode demorar pra sincronizar
-const ADMIN_KEY = import.meta.env.VITE_ADMIN_API_KEY;
 
 export function PageQR({ status }) {
   const [qrUrl, setQrUrl] = useState(null);
+  // O QR agora vem do /api/whatsapp/qr como data URL, e nao mais de uma
+  // <img src="/qr?k=CHAVE">. Imagem nao manda header Authorization, e era so
+  // por isso que o painel precisava carregar a chave de admin no bundle.
+  const carregarQr = useRef(null);
   const [qrErro, setQrErro] = useState(false);
   const [desconectando, setDesconectando] = useState(false);
   const [msg, setMsg] = useState(null);
@@ -21,6 +24,17 @@ export function PageQR({ status }) {
   const countdownTimer = useRef(null);
 
   const online = forceOffline ? false : status?.online;
+
+  carregarQr.current = async () => {
+    try {
+      const r = await api.get('/api/whatsapp/qr');
+      if (r?.dataUrl) { setQrUrl(r.dataUrl); setQrErro(false); }
+      else { setQrUrl(null); }
+    } catch (_) {
+      setQrUrl(null);
+      setQrErro(true);
+    }
+  };
 
   // Reseta forceOffline quando status real vira online
   useEffect(() => {
@@ -38,7 +52,7 @@ export function PageQR({ status }) {
     }
 
     setQrErro(false);
-    setQrUrl(`${API}/qr?t=${Date.now()}${ADMIN_KEY ? `&k=${encodeURIComponent(ADMIN_KEY)}` : ''}`);
+    carregarQr.current?.();
     setCountdown(QR_INTERVALO / 1000);
   }, [online, escaneando, status?.qrTs]);
 
@@ -48,7 +62,7 @@ export function PageQR({ status }) {
     if (online || escaneando) return;
     const t = setInterval(() => {
       setQrErro(false);
-      setQrUrl(`${API}/qr?t=${Date.now()}${ADMIN_KEY ? `&k=${encodeURIComponent(ADMIN_KEY)}` : ''}`);
+      carregarQr.current?.();
       setCountdown(QR_INTERVALO / 1000);
     }, QR_INTERVALO * 1.5);
     return () => clearInterval(t);
@@ -202,7 +216,7 @@ export function PageQR({ status }) {
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
               margin: '0 auto', gap: 12 }}>
               <div style={{ color: '#f87171', fontSize: 13 }}>Erro ao carregar QR</div>
-              <button onClick={() => { setQrErro(false); setQrUrl(`${API}/qr?t=${Date.now()}${ADMIN_KEY ? `&k=${encodeURIComponent(ADMIN_KEY)}` : ''}`); }}
+              <button onClick={() => { setQrErro(false); carregarQr.current?.(); }}
                 style={{ padding: '6px 16px', borderRadius: 8, border: 'none',
                   background: 'rgba(56,189,248,.15)', color: '#38bdf8', fontSize: 13, cursor: 'pointer' }}>
                 ↻ Tentar novamente
@@ -234,7 +248,7 @@ export function PageQR({ status }) {
                 ✅ Já escaneei o QR Code
               </button>
 
-              <button onClick={() => { setQrErro(false); setQrUrl(`${API}/qr?t=${Date.now()}${ADMIN_KEY ? `&k=${encodeURIComponent(ADMIN_KEY)}` : ''}`); }}
+              <button onClick={() => { setQrErro(false); carregarQr.current?.(); }}
                 style={{ marginTop: 10, padding: '7px 20px', borderRadius: 8, border: 'none',
                   background: 'rgba(56,189,248,.15)', color: '#38bdf8',
                   fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
