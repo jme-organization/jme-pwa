@@ -248,7 +248,7 @@ export function PageQR({ status }) {
                 ✅ Já escaneei o QR Code
               </button>
 
-              <button onClick={() => { setQrErro(false); carregarQr.current?.(); }}
+              <button onClick={() => { setQrErro(false); carregarQr.current?.(); setCountdown(QR_INTERVALO / 1000); }}
                 style={{ marginTop: 10, padding: '7px 20px', borderRadius: 8, border: 'none',
                   background: 'rgba(56,189,248,.15)', color: '#38bdf8',
                   fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
