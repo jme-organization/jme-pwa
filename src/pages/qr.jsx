@@ -22,14 +22,38 @@ export function PageQR({ status }) {
   const [countdown, setCountdown] = useState(QR_INTERVALO / 1000);
   const escaneandoTimer = useRef(null);
   const countdownTimer = useRef(null);
+  // geradoEm do último QR que de fato mudou. O timer visual só pode resetar
+  // quando este valor muda — antes disso o fallback de polling (que existe
+  // pra cobrir SSE perdido) reiniciava o timer a cada rebusca, mesmo quando
+  // o backend devolvia o MESMO QR de sempre: parecia "atualizado" mas a
+  // imagem na tela continuava velha, o que confundia quem tava escaneando.
+  const ultimoGeradoEmRef = useRef(null);
 
   const online = forceOffline ? false : status?.online;
+
+  const iniciarCountdown = () => {
+    if (countdownTimer.current) clearInterval(countdownTimer.current);
+    setCountdown(QR_INTERVALO / 1000);
+    countdownTimer.current = setInterval(() => {
+      setCountdown(prev => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+  };
 
   carregarQr.current = async () => {
     try {
       const r = await api.get('/api/whatsapp/qr');
-      if (r?.dataUrl) { setQrUrl(r.dataUrl); setQrErro(false); }
-      else { setQrUrl(null); }
+      if (r?.dataUrl) {
+        const ehQrNovo = r.geradoEm && r.geradoEm !== ultimoGeradoEmRef.current;
+        if (r.geradoEm) ultimoGeradoEmRef.current = r.geradoEm;
+        setQrUrl(r.dataUrl);
+        setQrErro(false);
+        // So reinicia o countdown quando o QR realmente trocou (ou na
+        // primeira vez, sem timer rodando ainda) — nunca por causa de um
+        // fetch que devolveu a mesma imagem de sempre.
+        if (ehQrNovo || !countdownTimer.current) iniciarCountdown();
+      } else {
+        setQrUrl(null);
+      }
     } catch (_) {
       setQrUrl(null);
       setQrErro(true);
@@ -47,40 +71,32 @@ export function PageQR({ status }) {
   useEffect(() => {
     if (online || escaneando) {
       setQrUrl(null);
+      if (countdownTimer.current) { clearInterval(countdownTimer.current); countdownTimer.current = null; }
       setCountdown(QR_INTERVALO / 1000);
       return;
     }
 
     setQrErro(false);
     carregarQr.current?.();
-    setCountdown(QR_INTERVALO / 1000);
   }, [online, escaneando, status?.qrTs]);
 
   // Fallback: se por algum motivo o SSE não avisar (reconexão, evento perdido),
-  // recarrega mesmo assim depois de um tempo maior que o ciclo real do QR.
+  // rebusca mesmo assim depois de um tempo maior que o ciclo real do QR. Não
+  // mexe no countdown diretamente — quem decide se reseta é carregarQr, com
+  // base em se o QR devolvido é de fato novo.
   useEffect(() => {
     if (online || escaneando) return;
     const t = setInterval(() => {
       setQrErro(false);
       carregarQr.current?.();
-      setCountdown(QR_INTERVALO / 1000);
     }, QR_INTERVALO * 1.5);
     return () => clearInterval(t);
   }, [online, escaneando]);
 
-  // Countdown visual do QR
-  useEffect(() => {
-    if (online || escaneando || !qrUrl) return;
+  // Limpa o timer ao desmontar a página
+  useEffect(() => () => {
     if (countdownTimer.current) clearInterval(countdownTimer.current);
-    setCountdown(QR_INTERVALO / 1000);
-    countdownTimer.current = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) { clearInterval(countdownTimer.current); return 0; }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(countdownTimer.current);
-  }, [qrUrl, online, escaneando]);
+  }, []);
 
   const marcarEscaneado = () => {
     setEscaneando(true);
@@ -113,12 +129,16 @@ export function PageQR({ status }) {
     setDesconectando(false);
   };
 
+  // Esse botão só existe na tela de QR (WhatsApp já desconectado) — não há
+  // sessão pareada ativa pra perder aqui, então "resetar" é sempre seguro:
+  // é o jeito de fato de forçar um QR novo agora, sem depender da rotação
+  // espontânea do backend (~20s, às vezes mais).
   const resetarSessao = async () => {
-    if (!confirm('Isso vai deletar a sessão salva e forçar um novo QR Code. Continuar?')) return;
+    if (!confirm('Forçar um QR Code novo agora?')) return;
     setResetando(true);
     try {
       await api.post('/api/whatsapp/resetar-sessao');
-      setMsg({ tipo: 'ok', texto: '✅ Sessão deletada! Gerando novo QR Code em instantes...' });
+      setMsg({ tipo: 'ok', texto: '✅ Gerando QR Code novo...' });
     } catch(e) {
       setMsg({ tipo: 'erro', texto: e.message || 'Erro ao resetar sessão' });
     }
@@ -208,7 +228,7 @@ export function PageQR({ status }) {
               border: '1px solid rgba(251,191,36,.4)', background: 'rgba(251,191,36,.08)',
               color: '#fbbf24', fontWeight: 700, fontSize: 14,
               cursor: resetando ? 'not-allowed' : 'pointer', opacity: resetando ? .6 : 1 }}>
-            {resetando ? 'Deletando sessão...' : '🗑️ Resetar Sessão do WhatsApp'}
+            {resetando ? 'Gerando QR novo...' : '🔄 Forçar QR Code novo'}
           </button>
 
           {qrErro ? (
@@ -248,7 +268,7 @@ export function PageQR({ status }) {
                 ✅ Já escaneei o QR Code
               </button>
 
-              <button onClick={() => { setQrErro(false); carregarQr.current?.(); setCountdown(QR_INTERVALO / 1000); }}
+              <button onClick={() => { setQrErro(false); carregarQr.current?.(); }}
                 style={{ marginTop: 10, padding: '7px 20px', borderRadius: 8, border: 'none',
                   background: 'rgba(56,189,248,.15)', color: '#38bdf8',
                   fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
