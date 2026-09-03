@@ -4,3 +4,4 @@ dist/
 .env.example
 *firebase-adminsdk*.json
 firebasekey.json
+.vercel

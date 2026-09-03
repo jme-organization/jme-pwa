@@ -43,3 +43,26 @@ linhas: o que muda hoje, o que muda no lançamento, o que ainda não dá pra sab
 - **Pendência mexe NA HORA, pelo `pend.js`** — fechou algo agora: `node ~/Vault/scripts/pend.js feito "<trecho>" --nota "<o que provou>"`; apareceu coisa nova: `pend.js add "<texto>" --projeto jme-pwa`. Não guardar pro encerramento: sessão que acaba sem "encerra" leva junto o que só estava na cabeça dela.
 Se o usuário disser "encerra", "vou fechar", "fim", "tchau", "vou sair", "salva aí", "parar por aqui": rodar a rotina de encerramento INTEIRA (os 6 passos acima), sozinho. NÃO perguntar "quer que eu atualize?" — o gatilho JÁ é a autorização.
 Se disser "por onde paramos", "oi", "resume": ler STATE.md e dar contexto + próximo passo.
+
+## Outro motor — quando NÃO é o Claude que faz
+Doutrina: `~/Vault/delegacao.md`. Um lembrete mecânico dispara sozinho (`delegar.js hook`), mas a decisão é sua.
+- **Revisar código → sempre outro motor.** `codex exec "revisa <alvo>: bug, regressão, segurança"`
+  ou o subagente `codex:codex-rescue`. Auto-revisão é o pior caso conhecido: o autor defende o que escreveu.
+- **Changelog / doc externa / versão nova → `opencode run "<pergunta>"`** (Nemotron, fora da cota do plano).
+- **Varredura ampla → script primeiro.** Extrai e filtra com grep/script; o modelo julga a lista curta.
+- **Classificar/extrair/resumir em lote → `node ~/Vault/scripts/roteador.js <classe> --prompt - --json`.**
+- **Paralelo só com contrato fechado**, um escritor por pasta (worktree). `~/Vault` é compartilhado.
+
+**Dentro da Orca, delegacao abre TERMINAL — nao roda escondido na sessao.**
+
+```
+node ~/Vault/scripts/delegar-terminal.js abrir codex "revisa <alvo>: bug, regressao, seguranca"
+node ~/Vault/scripts/delegar-terminal.js abrir opencode "<pergunta longa / changelog / doc>"
+```
+
+Duas razoes, as duas medidas: no app **mobile** da Orca a chamada do Codex por dentro da
+sessao **travava a tela**; e delegacao invisivel nao se audita — o dono lia "chamei o Codex"
+e tinha que acreditar. No terminal ele le a saida inteira, rola, copia e mata se quiser.
+Um terminal por motor/worktree, reusado a sessao toda; o `encerra.js` fecha o que abriu.
+Fora da Orca (sem `ORCA_TERMINAL_HANDLE`), segue valendo `codex exec` / `opencode run` direto.
+
