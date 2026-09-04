@@ -1,0 +1,24 @@
+# O que NUNCA pode subir pra Vercel.
+#
+# Este arquivo nasceu da auditoria de seguranca de 04/09/2026: havia uma copia
+# byte a byte identica da chave de service account do Firebase (a mesma em uso
+# no jme-back, private_key_id 6d5c682f19...) largada na raiz deste projeto.
+# Ela esta no .gitignore, entao um deploy pela integracao com o GitHub nunca a
+# levaria — mas `vercel deploy` rodado aqui de dentro envia a PASTA, e sem este
+# arquivo a credencial de administrador do Firestore ia junto.
+#
+# O painel nunca usa firebase-admin: ele fala com o backend por HTTP. Nenhum
+# arquivo de credencial tem motivo pra existir aqui.
+*firebase-adminsdk*.json
+firebasekey.json
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+
+# Nao ha por que enviar isso num deploy: a Vercel instala e builda por conta.
+node_modules/
+.git/
+.specs/
+docs/
