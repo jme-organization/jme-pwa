@@ -112,6 +112,12 @@ body {
   border: 1px solid rgba(100, 116, 139, 0.25);
 }
 
+.badge-bloqueado {
+  background: rgba(249, 115, 22, 0.14);
+  color: #fb923c;
+  border: 1px solid rgba(249, 115, 22, 0.35);
+}
+
 .badge-inadimplente {
   background: rgba(239, 68, 68, 0.18);
   color: #ef4444;

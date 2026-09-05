@@ -23,6 +23,27 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
   const itensPorPagina = 20;
   const navigate = useNavigate();
   const reqIdRef = useRef(0);
+  const [bloqueando, setBloqueando] = useState(null); // id do cliente em operacao
+
+  // Bloqueado e o meio-termo entre cobrar e cancelar: servico cortado, cliente
+  // ainda recuperavel. Ele sai da tabela do dia e das contas (pagos/pendentes/
+  // inadimplentes/%) e vai pra lista ao lado — senao ficava eternamente
+  // "pendente" inflando a inadimplencia de todo mes.
+  const ehBloqueado = (c) => (c.status_calculado || c.status) === 'bloqueado';
+
+  const alternarBloqueio = async (cliente, bloquear) => {
+    if (bloquear && !window.confirm(`Bloquear ${cliente.nome}?
+
+Ele sai da lista do dia e para de receber cobrança. Não é cancelamento.`)) return;
+    setBloqueando(cliente.id);
+    try {
+      await api.post(`/api/bases/${base.id}/clientes/${cliente.id}/bloqueio`, { bloquear });
+      await carregar(true);
+    } catch (e) {
+      alert(`Erro: ${e.message}`);
+    }
+    setBloqueando(null);
+  };
 
   const mesRefAnterior = () => {
     const agora = new Date();
@@ -42,6 +63,7 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
   // Função para calcular status histórico (como estava no último dia do mês)
   const calcularStatusHistorico = (cliente, mesRef) => {
     if (cliente.status === 'cancelado') return 'cancelado';
+    if (cliente.status === 'bloqueado') return 'bloqueado';
     if (cliente.status === 'promessa') return 'promessa';
     
     const [mes, ano] = mesRef.split('-').map(Number);
@@ -129,7 +151,7 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
     );
   }
 
-  const clientesDia = clientes.filter(c => parseInt(c.dia_vencimento) === diaAtivo);
+  const clientesDia = clientes.filter(c => parseInt(c.dia_vencimento) === diaAtivo && !ehBloqueado(c));
   const filtrados = clientesDia.filter(c => {
     if (filtro !== "todos") {
       const statusParaComparar = c.status_calculado || c.status;
@@ -177,7 +199,8 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
   });
 
   const s = stats(clientesDia);
-  const stotal = stats(clientes);
+  const stotal = stats(clientes.filter(c => !ehBloqueado(c)));
+  const totalBloqueados = clientes.filter(ehBloqueado).length;
 
   const onSalvo = () => {
     // Refetch em vez de merge local — status_calculado e outros campos
@@ -243,7 +266,9 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
   });
 
   // Atualiza os arrays filtrados com os status processados
-  const clientesDiaProcessados = clientesProcessados.filter(c => parseInt(c.dia_vencimento) === diaAtivo);
+  const doDia = clientesProcessados.filter(c => parseInt(c.dia_vencimento) === diaAtivo);
+  const clientesDiaProcessados = doDia.filter(c => !ehBloqueado(c));
+  const bloqueadosDia = doDia.filter(ehBloqueado);
   const filtradosProcessados = clientesDiaProcessados.filter(c => {
     if (filtro !== "todos") {
       const statusParaComparar = c.status_calculado;
@@ -276,6 +301,9 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
           </span>
           <span style={{ fontSize: 13, color: '#64748b' }}>
             {base?.descricao} — {stotal.total} clientes
+            {totalBloqueados > 0 && (
+              <span style={{ color: '#fb923c', marginLeft: 6 }}>+ {totalBloqueados} bloqueado(s)</span>
+            )}
           </span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -365,7 +393,9 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
       {base?.dias?.length > 0 && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
           {base.dias.sort((a, b) => a - b).map(d => {
-            const arr = clientesProcessados.filter(c => parseInt(c.dia_vencimento) === d);
+            const doDiaTab = clientesProcessados.filter(c => parseInt(c.dia_vencimento) === d);
+            const arr = doDiaTab.filter(c => !ehBloqueado(c));
+            const bloq = doDiaTab.length - arr.length;
             const pg = arr.filter(c => c.status_calculado === "pago").length;
             return (
               <button
@@ -383,7 +413,10 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
                 }}
               >
                 <div>Dia {d}</div>
-                <div style={{ fontSize: 11, opacity: 0.8 }}>{pg}/{arr.length}</div>
+                <div style={{ fontSize: 11, opacity: 0.8 }}>
+                  {pg}/{arr.length}
+                  {bloq > 0 && <span style={{ color: '#fb923c', marginLeft: 6 }}>🚫{bloq}</span>}
+                </div>
               </button>
             );
           })}
@@ -418,8 +451,9 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
         </div>
       </div>
 
-      {/* Tabela de clientes */}
-      <Card style={{ background: '#0f1117', borderRadius: 12, overflow: 'hidden' }}>
+      {/* Tabela do dia + lista de bloqueados ao lado */}
+      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      <Card style={{ background: '#0f1117', borderRadius: 12, overflow: 'hidden', flex: '1 1 560px', minWidth: 0 }}>
         <div style={{ padding: '16px', borderBottom: '1px solid #2d3148' }}>
           <div style={{ display: 'flex', gap: 16, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
             <input
@@ -491,6 +525,7 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
                     <th style={{ padding: '12px', textAlign: 'left', color: '#94a3b8', fontSize: 11 }}>Plano</th>
                     <th style={{ padding: '12px', textAlign: 'left', color: '#94a3b8', fontSize: 11 }}>Comodato</th>
                     <th style={{ padding: '12px', textAlign: 'left', color: '#94a3b8', fontSize: 11 }}>Status</th>
+                    <th style={{ padding: '12px', textAlign: 'right', color: '#94a3b8', fontSize: 11 }}>Ações</th>
                    </tr>
                 </thead>
                 <tbody>
@@ -508,6 +543,24 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
                             {c.mes_referencia}
                           </span>
                         )}
+                      </td>
+                      <td style={{ padding: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); alternarBloqueio(c, true); }}
+                          disabled={bloqueando === c.id}
+                          title="Bloquear: sai da lista e das contas do dia, sem cancelar"
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: 6,
+                            border: '1px solid rgba(249,115,22,0.35)',
+                            background: 'rgba(249,115,22,0.1)',
+                            color: '#fb923c',
+                            fontSize: 12,
+                            cursor: bloqueando === c.id ? 'wait' : 'pointer'
+                          }}
+                        >
+                          {bloqueando === c.id ? '...' : '🚫 Bloquear'}
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -555,6 +608,79 @@ export const VisualizadorBase = ({ base, onVoltar }) => {
           </>
         )}
       </Card>
+
+      {/* Lista dos bloqueados do dia — nem cobrado, nem cancelado */}
+      <div style={{
+        flex: '0 1 280px',
+        minWidth: 240,
+        background: '#0f1117',
+        border: '1px solid #2d3148',
+        borderRadius: 12,
+        overflow: 'hidden'
+      }}>
+        <div style={{ padding: '14px 16px', borderBottom: '1px solid #2d3148' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#fb923c' }}>
+            🚫 Bloqueados — dia {diaAtivo}
+          </div>
+          <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+            {bloqueadosDia.length === 0
+              ? 'Ninguém bloqueado nesta data'
+              : `${bloqueadosDia.length} fora da cobrança e das contas`}
+          </div>
+        </div>
+        {bloqueadosDia.map(c => (
+          <div key={c.id} style={{ padding: '10px 16px', borderBottom: '1px solid #1a1d2e' }}>
+            <div
+              onClick={() => setModalCliente(c)}
+              style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0', cursor: 'pointer' }}
+            >
+              {c.nome}
+            </div>
+            <div style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>
+              {c.telefone || '—'}
+            </div>
+            {c.bloqueado_em && (
+              <div style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>
+                desde {new Date(c.bloqueado_em).toLocaleDateString('pt-BR')}
+                {c.motivo_bloqueio ? ` — ${c.motivo_bloqueio}` : ''}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+              <button
+                onClick={() => alternarBloqueio(c, false)}
+                disabled={bloqueando === c.id}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: 6,
+                  border: '1px solid rgba(34,197,94,0.3)',
+                  background: 'rgba(34,197,94,0.08)',
+                  color: '#4ade80',
+                  fontSize: 11,
+                  cursor: bloqueando === c.id ? 'wait' : 'pointer'
+                }}
+              >
+                {bloqueando === c.id ? '...' : '↩ Desbloquear'}
+              </button>
+              <button
+                onClick={() => setModalCliente(c)}
+                title="Abre o cliente na aba de cancelamento"
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: 6,
+                  border: '1px solid rgba(248,113,113,0.3)',
+                  background: 'rgba(248,113,113,0.08)',
+                  color: '#f87171',
+                  fontSize: 11,
+                  cursor: 'pointer'
+                }}
+              >
+                ❌ Cancelar
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+      </div>
 
       {modalCliente && (
         <ModalEditarCliente

@@ -5,6 +5,7 @@ const STATUS_CLIENTE = {
   pago: { label: "Pago", cls: "badge-pago", emoji: "✅" },
   pendente: { label: "Pendente", cls: "badge-pendente", emoji: "⏳" },
   promessa: { label: "Promessa", cls: "badge-promessa", emoji: "🤝" },
+  bloqueado: { label: "Bloqueado", cls: "badge-bloqueado", emoji: "🚫" },
   cancelado: { label: "Cancelado", cls: "badge-cancelado", emoji: "❌" },
   inadimplente: { label: "Inadimplente", cls: "badge-inadimplente", emoji: "🔴" }
 };
