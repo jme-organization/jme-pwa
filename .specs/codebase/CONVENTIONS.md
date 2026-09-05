@@ -1,109 +1,59 @@
-# Code Conventions
+# CONVENTIONS — jme-pwa
 
-## Naming
+Escrito em 2026-09-05 a partir de **medição neste código**, não de checklist genérico.
+Cada regra abaixo existe porque o scanner achou o problema aqui, ou porque achou o
+acerto aqui e ele merece ser preservado.
 
-**Arquivos:**
-- Pages: `camelcase.jsx` — `qr.jsx`, `dashboard.jsx`, `boasvindas.jsx`
-- Components: `PascalCase.jsx` — `TopNav.jsx`, `ErrorBoundary.jsx`
-- Hooks: `camelCase.js` prefixado com `use` — `useFetch.js`, `useSSEData.js`
-- Contexts: `PascalCaseContext.jsx` — `ThemeContext.jsx`, `NotificationContext.jsx`
-- Backend routes: `kebab-case.js` — `bot.js`, `boas-vindas.js`, `instalacoes-agendadas.js`
-- Backend services: `camelCaseService.js` — `sseService.js`, `whatsappService.js`
+Stack: React 18 · Vite · React Router · Recharts. Sem Tailwind, sem CSS-in-JS.
 
-**Exports Frontend:**
-- Named exports em PascalCase: `export function PageQR`, `export function TopNav`
-- Default export apenas em `App.jsx`
+## O que já está certo — não "consertar"
 
-**Variáveis:**
-- camelCase: `botAtivo`, `botIniciadoEm`, `situacaoRede`
-- Constantes de env no topo do arquivo: `const API = import.meta.env.VITE_API_URL || ""`
+Medido em 05/09/2026 nos 53 `useEffect` e 181 `useState` do `src/`:
 
-## Estrutura de Arquivo (Frontend)
+- **Zero** `useEffect` sem array de dependência.
+- **Zero** timer, listener ou subscription sem `cleanup`.
+- Os 7 efeitos que só chamam `setX` são reset intencional (troca de aba, troca de
+  base, status de rede), não estado derivado por descuido.
 
-Padrão observado em pages:
-```jsx
-// 1. Imports React
-import React, { useState, useEffect } from 'react';
+**Não gastar sessão "corrigindo hooks" aqui.** A higiene de hook deste projeto está
+boa; quem mexer deve manter o padrão, não reescrever o que já funciona.
 
-// 2. Constantes de ambiente (local por arquivo)
-const API = import.meta.env.VITE_API_URL || "";
-const API_KEY = import.meta.env.VITE_ADMIN_API_KEY || "";
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
+## Estilo — a regra que dói
 
-// 3. Export da função componente
-export function PageXxx({ props }) {
-  // estados
-  // effects
-  // handlers
-  // return JSX
-}
-```
+O projeto **já tem sistema de cor**: 12 variáveis CSS em `src/index.css`
+(`--bg-primary`, `--bg-secondary`, `--bg-card`, `--border`, `--text-primary`,
+`--text-secondary`, `--text-muted`, `--green`, `--amber`, `--red`, `--blue`,
+`--purple`), com tema claro por `[data-theme="light"]`.
 
-## Estilização
+E **668 `style={{ }}` inline** espalhados pelo `src/`, cada um com hex e px escolhidos
+na hora, passando por fora dessas variáveis. É por isso que a tela sai sem cara própria:
+o sistema existe e é contornado 668 vezes.
 
-Inline styles exclusivamente via objeto `style={{}}`. Sem classes CSS externas, sem CSS modules, sem Tailwind. Paleta dark theme consistente:
-- Background cards: `#0f1117`
-- Borders: `rgba(255,255,255,0.05)` a `rgba(255,255,255,0.1)`
-- Verde online: `#22c55e` / `rgba(34,197,94,.3)`
-- Vermelho erro: `#ef4444` / `rgba(239,68,68,.3)`
-- Azul info: `#38bdf8`
-- Amarelo alerta: `#fbbf24`
-- Texto secundário: `#64748b`
+- **Cor em `style={{}}` é proibida.** Usa `var(--token)` ou classe.
+- **Espaçamento e tamanho novos vão pro CSS**, não pro atributo `style`.
+- `style={{}}` só para valor **calculado em tempo de execução** (largura de barra
+  proporcional a um número, posição de tooltip). Valor fixo nunca.
+- As variáveis estão **declaradas duas vezes** no `index.css` (linhas 9 e 359).
+  Quem mexer em token unifica antes de acrescentar mais um.
 
-## Autenticação (Frontend)
+## Tamanho de arquivo
 
-Cada arquivo define `authHeaders()` localmente — padrão repetido em todas as pages. `src/api/client.js` existe mas não é usado universalmente.
+Quatro componentes passaram de 400 linhas:
 
-```js
-const authHeaders = () => API_KEY ? { "x-api-key": API_KEY } : {};
-// uso:
-fetch(url, { headers: { "Content-Type": "application/json", ...authHeaders() } })
-```
+| Arquivo | Linhas |
+|---|---|
+| `ModalEditarCliente.jsx` | 857 |
+| `VisualizadorBase.jsx` | 706 |
+| `TopNav.jsx` | 687 |
+| `BackupButton.jsx` | 424 |
 
-## Error Handling (Frontend)
+Componente acima de **400 linhas** não recebe funcionalidade nova sem ser quebrado
+antes. Não é regra estética: é onde revisão para de achar bug e onde duas sessões
+paralelas colidem.
 
-Try/catch nos async handlers com mensagem local via `setMsg`:
-```js
-try {
-  const r = await fetch(...);
-  const j = await r.json();
-  setMsg(j.ok ? { tipo: 'ok', texto: '...' } : { tipo: 'erro', texto: j.erro });
-} catch {
-  setMsg({ tipo: 'erro', texto: 'Falha de conexão com o servidor.' });
-}
-```
+## Nunca
 
-## Backend — Estrutura de Route Handler
-
-```js
-module.exports = function setupXxxRoutes(app, ctx) {
-  app.get('/api/xxx', async (req, res) => {
-    try {
-      // lógica
-      res.json({ ok: true, data: ... });
-    } catch(e) {
-      res.status(500).json({ ok: false, erro: e.message });
-    }
-  });
-};
-```
-
-## Resposta de API (Backend)
-
-Padrão consistente:
-- Sucesso: `{ ok: true, ...dados }`
-- Erro: `{ ok: false, erro: string }` com status HTTP adequado
-- `/api/status`: exceção — retorna direto `{ botAtivo, online, iniciadoEm, situacaoRede, previsaoRetorno }`
-
-## Comentários
-
-Mínimos. Usados para separar seções:
-```js
-// ─────────────────────────────────────────────────────
-// WHATSAPP
-// ─────────────────────────────────────────────────────
-```
-E para contexto não óbvio:
-```js
-// /api/status não toca Firebase — só lê variáveis em memória, custo zero
-```
+- Cor ou px fixo dentro de `style={{}}`.
+- Acrescentar tela nova em componente que já passou de 400 linhas.
+- Declarar variável CSS nova sem antes unificar os dois blocos duplicados.
+- Reescrever hook que já tem dependência e cleanup corretos "pra padronizar".

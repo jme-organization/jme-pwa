@@ -5,20 +5,7 @@
   box-sizing: border-box;
 }
 
-:root {
-  --bg-primary: #0a0e1a;
-  --bg-secondary: #0f1117;
-  --bg-card: #1a1d2e;
-  --border: #2d3148;
-  --text-primary: #e2e8f0;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --green: #22c55e;
-  --amber: #f59e0b;
-  --red: #ef4444;
-  --blue: #38bdf8;
-  --purple: #a78bfa;
-}
+/* Tokens de cor: bloco unico na secao TEMAS, no fim deste arquivo. */
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -114,7 +101,7 @@ body {
 
 .badge-bloqueado {
   background: rgba(249, 115, 22, 0.14);
-  color: #fb923c;
+  color: var(--orange);
   border: 1px solid rgba(249, 115, 22, 0.35);
 }
 
@@ -368,6 +355,10 @@ body {
     --red: #ef4444;
     --blue: #38bdf8;
     --purple: #a78bfa;
+    /* Laranja: o estado "nem la, nem ca" — cliente bloqueado (servico cortado,
+       ainda recuperavel) e divergencia com o SGP. Nao e vermelho porque nao e
+       perda, e nao e ambar porque nao esta so esperando. */
+    --orange: #fb923c;
 }
 
 [data-theme="light"] {
@@ -383,6 +374,7 @@ body {
     --red: #dc2626;
     --blue: #2563eb;
     --purple: #7c3aed;
+    --orange: #ea580c;
 }
 
 /* Ajustes para o tema claro */
@@ -569,4 +561,163 @@ body {
   .rede-btns {
     flex-wrap: wrap;
   }
+}
+/* =====================================================
+   INTEGRAÇÃO SGP — página "Baixas SGP"
+   Tela nova, escrita dentro do piso de legibilidade do .specs/DESIGN.md:
+   corpo 15px, apoio 11px+, peso 600+ em título e botão. Sem cor nem px em
+   style inline (CONVENTIONS.md).
+   ===================================================== */
+.sgp-topo {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.sgp-estado {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+.sgp-pulso {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex: none;
+}
+.sgp-pulso-ok    { background: var(--green); }
+.sgp-pulso-velho { background: var(--orange); }
+.sgp-pulso-off   { background: var(--text-muted); }
+
+.sgp-meta {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-top: 4px;
+    line-height: 1.4;
+}
+
+.sgp-acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.sgp-btn {
+    padding: 9px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 150ms ease, color 150ms ease;
+}
+.sgp-btn:hover:not(:disabled) { border-color: var(--blue); color: var(--blue); }
+.sgp-btn:disabled { cursor: wait; color: var(--text-muted); }
+
+.sgp-btn-primario {
+    border-color: rgba(56, 189, 248, 0.4);
+    background: rgba(56, 189, 248, 0.12);
+    color: var(--blue);
+}
+
+.sgp-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    padding: 16px;
+}
+
+.sgp-kpi {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+}
+
+.sgp-kpi-valor {
+    display: block;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+.sgp-kpi-valor-ok    { color: var(--green); }
+.sgp-kpi-valor-alerta{ color: var(--orange); }
+.sgp-kpi-valor-erro  { color: var(--red); }
+
+.sgp-kpi-rotulo {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-top: 6px;
+    line-height: 1.4;
+}
+
+.sgp-secao { margin-bottom: 16px; }
+
+.sgp-secao-titulo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.sgp-secao-sub {
+    padding: 12px 16px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.sgp-linha {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--bg-card);
+    font-size: 15px;
+    line-height: 1.4;
+}
+.sgp-linha:last-child { border-bottom: none; }
+
+.sgp-nome { font-weight: 600; color: var(--text-primary); }
+.sgp-detalhe { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.sgp-motivo { font-size: 13px; font-weight: 600; color: var(--orange); }
+
+.sgp-vazio {
+    padding: 32px 16px;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+.sgp-vazio-emoji { display: block; font-size: 40px; margin-bottom: 10px; }
+
+.sgp-erro {
+    margin: 12px 16px;
+    padding: 12px 14px;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    border-radius: 8px;
+    background: rgba(239, 68, 68, 0.08);
+    color: var(--red);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
 }

@@ -1,5 +1,45 @@
 # jme-pwa
 
+- **Antes de codar feature nova:** feature nova, mudança de schema em banco com dado real,
+  cobrança/assinatura, auth/permissão, migração ou integração nova com terceiro **não começa
+  em código** — dispara a skill `plano-sob-fogo`: interrogatório de uma pergunta por vez, com
+  `AskUserQuestion`, até fechar o `PLAN.md` em `.specs/planos/<slug>.md` (com **Fora de escopo**
+  escrito) e o dono aprovar. Bug, ajuste de texto, rename e revisão de código pronto seguem
+  direto, sem plano. Gatilhos: "me interroga", "testa meu plano", "planeja antes", "não codifica ainda".
+- **FRONT — vale pra qualquer porta de entrada.** Se a conversa envolve tela, componente,
+  layout, estilo, cor, tipografia, animação, ícone, responsivo ou "tá feio/genérico" —
+  **em qualquer forma**: reparo de bug visual, ajuste, restyle, reimplementação, refatoração,
+  feature nova, tela nova, componente novo, projeto novo, ou o dono só comentando o visual —
+  a sessão **carrega o contexto de front ANTES de escrever a primeira linha**, sem o dono pedir:
+  1. **`.specs/DESIGN.md`** — paleta, escala de texto, escala de movimento, estado de componente,
+     tela vazia/erro. Valor visual que não está lá **não se inventa no arquivo de tela**: ou entra
+     no `DESIGN.md` primeiro (com o motivo), ou usa o que já existe.
+     **Não existe `DESIGN.md` e o projeto tem front? Escrever um ANTES de mexer** — extraindo do
+     código o que já está decidido e perguntando ao dono o que falta, com a skill `plano-sob-fogo`.
+  2. **`.specs/codebase/CONVENTIONS.md`** — o que já está certo neste projeto e não se "conserta",
+     e o que é proibido aqui.
+  3. **Skill certa pro caso:** `frontend-design` (direção visual de tela ou fluxo novo) ·
+     `svg-draw` (ícone, ilustração, mascote, diagrama, dar vida a elemento) · `svg-animations`
+     (consulta de sintaxe SVG/SMIL) · `web-perf` (tela lenta, Core Web Vitals) ·
+     `agent-browser` / `agent-browser-dogfood` (conferir a tela depois de pronta, nunca antes).
+  **Piso de legibilidade — vale em TODO projeto, o modelo não fura sem perguntar.**
+  A estética que a IA produz por padrão é fina, pequena, com tracking negativo largo e
+  cinza sobre cinza: fica bonita em print e é ruim de ler no celular. Aqui não entra.
+  - **Peso mínimo 600.** Peso 300 e 400 são proibidos em título e em botão.
+  - **Corpo nunca abaixo de 15px**; texto de apoio nunca abaixo de 11px.
+  - **`letterSpacing` negativo no máximo -0.5px**, e só acima de 24px.
+  - **Contraste do texto principal ≥ 4.5:1.** Cinza sobre cinza é reprovado.
+  - **`line-height` 1.4 no corpo.**
+  Quer furar o piso num caso específico? **Pergunta antes**, com o motivo — não fura calado.
+  **Escolha de fonte, quando não existe `DESIGN.md`:** herda o que a casa já usa —
+  **Barlow Condensed** em app/produto, **Poppins** em LP de venda, **pilha do sistema**
+  em painel interno. Fonte diferente disso **não entra sozinha**: a sessão pergunta antes,
+  mostrando 2 ou 3 opções com amostra do texto real do projeto.
+  **O `DESIGN.md` trava vocabulário, não composição.** Layout, hierarquia, o que é grande e o que
+  some, o que se move e por quê, densidade, quebrar a grade de propósito — é tudo da sessão, e ela
+  deve ousar. Achou que a escala atrapalha o que a tela precisa ser? O defeito é da escala: propor
+  a emenda no `DESIGN.md`, nunca contornar no arquivo de tela.
+
 ## Contexto automático (ler no início da sessão, sem o usuário pedir)
 1. Ler `.specs/STATE.md` (onde parei, próximo passo) se existir.
 2. Consultar docs do projeto (CLAUDE.md/.specs) SÓ sob demanda — não carregar tudo por padrão.
