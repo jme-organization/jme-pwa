@@ -10,7 +10,7 @@ import { useSSEData } from '../hooks/useSSEData';
 import { Spinner } from '../components/Spinner';
 import { api } from '../api/client';
 import { PainelSincronizacao } from '../components/sgp/PainelSincronizacao';
-import { ListaPendentes, ListaDivergencias, ListaSemMatch } from '../components/sgp/ListasConferencia';
+import { ListaPendentes, ListaDivergencias, ListaSemMatch, ListaSuspensos } from '../components/sgp/ListasConferencia';
 import { BaixasManuais } from '../components/sgp/BaixasManuais';
 
 export function PageSGP() {
@@ -83,6 +83,7 @@ export function PageSGP() {
       ) : (
         <>
           <ListaPendentes itens={resumo?.pendentesDeBaixa || []} />
+          <ListaSuspensos itens={resumo?.suspensos || []} onAplicado={() => conferir(true)} />
           <ListaDivergencias itens={resumo?.divergencias || []} />
           <ListaSemMatch itens={resumo?.semMatch || []} />
         </>

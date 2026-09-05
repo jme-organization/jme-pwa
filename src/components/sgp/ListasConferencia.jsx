@@ -1,6 +1,7 @@
 // src/components/sgp/ListasConferencia.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import { Card } from '../Card';
+import { api } from '../../api/client';
 
 const dataBR = (iso) => (iso ? String(iso).split('-').reverse().join('/') : '—');
 const dinheiro = (v) => (v || v === 0 ? `R$ ${Number(v).toFixed(2).replace('.', ',')}` : '—');
@@ -92,6 +93,94 @@ export function ListaSemMatch({ itens }) {
             <span className="sgp-motivo">{d.motivo}</span>
           </div>
         ))
+      )}
+    </Card>
+  );
+}
+
+// Contrato que o SGP mostra fora de 'Ativo' (suspenso, cancelado lá). O painel
+// NÃO aplica isso sozinho — bloquear é decisão do dono, e a suspensão lá pode
+// ser temporária ou engano. Aqui ele vê e aplica com um clique.
+export function ListaSuspensos({ itens, onAplicado }) {
+  const [aplicando, setAplicando] = useState(null);
+  const [erro, setErro] = useState(null);
+
+  const bloquear = async (item) => {
+    if (!window.confirm(
+      `Bloquear ${item.nome} aqui?
+
+O SGP mostra o contrato como ${item.statusSgp}. ` +
+      `Ele sai da cobrança e das contas do dia. Não é cancelamento.`
+    )) return;
+    setAplicando(item.id);
+    setErro(null);
+    try {
+      await api.post(`/api/bases/${item.base_id}/clientes/${item.id}/bloqueio`, {
+        bloquear: true,
+        motivo: `Contrato ${item.statusSgp} no SGP${item.motivo ? ` — ${item.motivo}` : ''}`,
+      });
+      onAplicado?.();
+    } catch (e) {
+      setErro(`Não consegui bloquear ${item.nome}: ${e.message}`);
+    } finally {
+      setAplicando(null);
+    }
+  };
+
+  // Quem já está bloqueado aqui não precisa aparecer: painel e SGP concordam.
+  const relevantes = itens.filter(i => i.statusAqui !== 'bloqueado' && i.statusAqui !== 'cancelado');
+
+  // 'Ativo V. Reduzida' é velocidade reduzida por falta de pagamento — o serviço
+  // ainda está de pé, o cliente continua sendo cobrado, e bloquear aqui seria
+  // errado. Vira aviso sem botão. Só 'Suspenso' e 'Cancelado' ganham a ação.
+  const cortados = relevantes.filter(i => /^(suspenso|cancelado)/i.test(i.statusSgp || ''));
+  const reduzidos = relevantes.filter(i => !/^(suspenso|cancelado)/i.test(i.statusSgp || ''));
+
+  return (
+    <Card className="sgp-secao">
+      <div className="sgp-secao-titulo">
+        <span>🚫 Situação do contrato no SGP</span>
+        <span className="sgp-detalhe">{cortados.length + reduzidos.length}</span>
+      </div>
+      <div className="sgp-secao-sub">
+        Contratos que no SGP não estão simplesmente ativos. Suspenso e cancelado podem virar
+        bloqueio aqui — com o seu clique, o painel não aplica sozinho.
+      </div>
+      {erro && <div className="sgp-erro">{erro}</div>}
+      {cortados.length === 0 && reduzidos.length === 0 ? (
+        <Vazio emoji="👌" texto="Nenhum contrato fora de sincronia." />
+      ) : (
+        <>
+          {cortados.map((d, i) => (
+            <div className="sgp-linha" key={`${d.id}-${i}`}>
+              <span className="sgp-nome">{d.nome}</span>
+              <span className="sgp-motivo">{d.statusSgp}{d.motivo ? ` — ${d.motivo}` : ''}</span>
+              <span className="sgp-detalhe">aqui: {d.statusAqui || 'pendente'}</span>
+              <button
+                className="sgp-btn"
+                disabled={aplicando === d.id || d.base_id === null}
+                onClick={() => bloquear(d)}
+              >
+                {aplicando === d.id ? 'Bloqueando…' : '🚫 Bloquear aqui'}
+              </button>
+            </div>
+          ))}
+          {reduzidos.length > 0 && (
+            <>
+              <div className="sgp-secao-sub">
+                Velocidade reduzida no SGP — o serviço continua de pé e o cliente segue no ciclo de
+                cobrança. É aviso, não motivo pra bloquear.
+              </div>
+              {reduzidos.map((d, i) => (
+                <div className="sgp-linha" key={`red-${d.id}-${i}`}>
+                  <span className="sgp-nome">{d.nome}</span>
+                  <span className="sgp-motivo">{d.statusSgp}</span>
+                  <span className="sgp-detalhe">aqui: {d.statusAqui || 'pendente'}</span>
+                </div>
+              ))}
+            </>
+          )}
+        </>
       )}
     </Card>
   );
