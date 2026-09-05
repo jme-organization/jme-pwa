@@ -185,3 +185,55 @@ O SGP mostra o contrato como ${item.statusSgp}. ` +
     </Card>
   );
 }
+
+// O CPF cadastrado aqui pertence a OUTRA pessoa no SGP. Nada é sincronizado
+// nesses casos — foi assim que o cache de cobrança de uma cliente ficou com
+// cinco boletos de outra, em 05/09/2026. Corrigir é no cadastro.
+export function ListaConflitos({ itens }) {
+  if (!itens.length) return null;
+  return (
+    <Card className="sgp-secao">
+      <div className="sgp-secao-titulo">
+        <span>🚨 CPF aponta pra outra pessoa</span>
+        <span className="sgp-detalhe">{itens.length}</span>
+      </div>
+      <div className="sgp-secao-sub">
+        Esses não sincronizam de propósito: usar o título dessa outra pessoa mandaria o boleto
+        errado na cobrança. Corrija o CPF no cadastro do cliente.
+      </div>
+      {itens.map((d, i) => (
+        <div className="sgp-linha" key={`${d.id}-${i}`}>
+          <span className="sgp-nome">{d.nome}</span>
+          <span className="sgp-detalhe">CPF {d.cpf || '—'}</span>
+          <span className="sgp-motivo">no SGP é de {d.noSgpEsseCpfEDe}</span>
+        </div>
+      ))}
+    </Card>
+  );
+}
+
+// Login PPPoE casou, mas o CPF daqui é diferente do que está no SGP. Sincroniza
+// normalmente (o login é a identidade), só avisa que o cadastro está com o
+// número errado.
+export function ListaCpfDivergente({ itens }) {
+  if (!itens.length) return null;
+  return (
+    <Card className="sgp-secao">
+      <div className="sgp-secao-titulo">
+        <span>📇 CPF diferente do SGP</span>
+        <span className="sgp-detalhe">{itens.length}</span>
+      </div>
+      <div className="sgp-secao-sub">
+        O login PPPoE casou, então a sincronização funciona — mas o CPF do cadastro daqui não é o
+        mesmo do SGP. Vale corrigir pra busca por CPF parar de falhar.
+      </div>
+      {itens.map((d, i) => (
+        <div className="sgp-linha" key={`${d.id}-${i}`}>
+          <span className="sgp-nome">{d.nome}</span>
+          <span className="sgp-detalhe">aqui: {d.cpfPainel || '—'}</span>
+          <span className="sgp-motivo">SGP: {d.cpfSgp}</span>
+        </div>
+      ))}
+    </Card>
+  );
+}
