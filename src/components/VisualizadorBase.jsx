@@ -5,6 +5,7 @@
 // que ninguem chamava: sobrou uma passagem so. E o `?cliente=<id>` que a busca
 // global coloca na URL era ignorado — agora abre a ficha direto.
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from './Card';
 import { Spinner } from './Spinner';
 import { BadgeCliente } from './BadgeCliente';
@@ -43,6 +44,7 @@ export const VisualizadorBase = ({ base, clienteDestacado, onVoltar }) => {
   const [pagina, setPagina] = useState(1);
   const [bloqueando, setBloqueando] = useState(null);
   const reqIdRef = useRef(0);
+  const navigate = useNavigate();
 
   // Bloqueado e o meio-termo entre cobrar e cancelar: servico cortado, cliente
   // ainda recuperavel. Sai da tabela do dia e das contas, e vive na coluna ao
@@ -71,12 +73,17 @@ export const VisualizadorBase = ({ base, clienteDestacado, onVoltar }) => {
   useEffect(() => { setPagina(1); }, [diaAtivo, filtro, busca]);
 
   // Veio da busca global (?cliente=<id>): abre a ficha assim que a lista chega.
-  const jaAbriuRef = useRef(false);
+  // O guarda anota QUAL cliente ja foi aberto, nao apenas que algum foi: com um
+  // booleano, a segunda busca global feita sem sair da base mudava a URL e nao
+  // abria ninguem — o efeito voltava cedo pra sempre.
+  const ultimoDestacadoRef = useRef(null);
   useEffect(() => {
-    if (jaAbriuRef.current || !clienteDestacado || clientes.length === 0) return;
+    if (!clienteDestacado) { ultimoDestacadoRef.current = null; return; }
+    if (ultimoDestacadoRef.current === String(clienteDestacado)) return;
+    if (clientes.length === 0) return;
     const alvo = clientes.find(c => String(c.id) === String(clienteDestacado));
     if (!alvo) return;
-    jaAbriuRef.current = true;
+    ultimoDestacadoRef.current = String(clienteDestacado);
     if (alvo.dia_vencimento) setDiaAtivo(parseInt(alvo.dia_vencimento, 10));
     setModalCliente(alvo);
   }, [clienteDestacado, clientes]);
@@ -399,7 +406,12 @@ export const VisualizadorBase = ({ base, clienteDestacado, onVoltar }) => {
         <ModalEditarCliente
           cliente={modalCliente}
           baseId={base.id}
-          onClose={() => setModalCliente(null)}
+          onClose={() => {
+            setModalCliente(null);
+            // Fechar a ficha aberta pela busca global tira o ?cliente da URL:
+            // sem isso, procurar o MESMO cliente de novo nao reabria nada.
+            if (clienteDestacado) navigate(`/clientes?base=${base.id}`, { replace: true });
+          }}
           onSalvo={() => carregar(true)}
         />
       )}
