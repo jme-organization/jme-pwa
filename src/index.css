@@ -1851,3 +1851,8 @@ textarea.entrada { resize: vertical; min-height: 92px; }
 .carne-meta { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
 
 .previa-competencias { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+
+/* utilidades de layout que saíram de style inline ao quebrar os componentes */
+.nao-quebra { flex-wrap: nowrap; }
+.opcoes-coluna { flex-direction: column; }
+.card-cab-bloco { display: block; }

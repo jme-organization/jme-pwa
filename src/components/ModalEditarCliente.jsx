@@ -1,27 +1,19 @@
 // src/components/ModalEditarCliente.jsx — a ficha do cliente.
 //
-// Mudou de forma, nao de funcao: as seis abas continuam as mesmas. O que saiu
-// foi o `toggleStatus` que ninguem chamava e o segundo campo de promessa ("ou
-// data em texto livre"), que escrevia no MESMO estado do campo de data — quem
-// digitasse ali mandava texto solto pro backend, que espera uma data.
+// Este arquivo tinha 543 linhas com as seis abas dentro. Cada aba virou um
+// componente em `ficha/`, e o que sobrou aqui é o que de fato é do modal: o
+// estado do cadastro, as chamadas de API e qual aba está aberta. O piso do
+// CONVENTIONS.md é 400 linhas, e o motivo não é estético — é onde a revisão
+// para de achar bug.
 import React, { useState } from 'react';
 import { BadgeCliente } from './BadgeCliente';
 import { PainelDatas } from './PainelDatas';
+import { Recado } from './ficha/Recado';
+import { AbaDados } from './ficha/AbaDados';
+import { AbaCobranca } from './ficha/AbaCobranca';
+import { AbaPromessa } from './ficha/AbaPromessa';
+import { AbaCancelar } from './ficha/AbaCancelar';
 import { api } from '../api/client';
-
-const PLANOS = [
-  'Cabo 50MB — R$50',
-  'Fibra 200MB — R$60',
-  'Fibra 200MB + IPTV — R$70',
-];
-
-const MOTIVOS_CANCELAMENTO = [
-  'Problemas financeiros',
-  'Qualidade do serviço',
-  'Mudança de endereço',
-  'Contratei outro provedor',
-  'Outro motivo',
-];
 
 const ABAS = [
   { id: 'dados', rotulo: '📋 Dados' },
@@ -31,11 +23,6 @@ const ABAS = [
   { id: 'promessa', rotulo: '🤝 Promessa' },
   { id: 'cancelar', rotulo: '❌ Cancelar', perigo: true },
 ];
-
-function Recado({ msg }) {
-  if (!msg) return null;
-  return <div className={`aviso ${msg.ok ? 'aviso-ok' : 'aviso-erro'} mb-2`}>{msg.txt}</div>;
-}
 
 export const ModalEditarCliente = ({ cliente, baseId, onClose, onSalvo }) => {
   const [form, setForm] = useState({
@@ -60,7 +47,6 @@ export const ModalEditarCliente = ({ cliente, baseId, onClose, onSalvo }) => {
   const [offsets, setOffsets] = useState(
     cliente.config_cobranca?.offsets?.length ? cliente.config_cobranca.offsets : [-1, 1, 3, 5, 7, 9]
   );
-  const [novoOffset, setNovoOffset] = useState('');
   const [salvandoConfig, setSalvandoConfig] = useState(false);
   const [configMsg, setConfigMsg] = useState(null);
   const [cobrando, setCobrando] = useState(false);
@@ -238,10 +224,6 @@ export const ModalEditarCliente = ({ cliente, baseId, onClose, onSalvo }) => {
     </div>
   );
 
-  const antes = offsets.filter(o => o < 0).sort((a, b) => b - a);
-  const depois = offsets.filter(o => o >= 0).sort((a, b) => a - b);
-  const ultimo = depois[depois.length - 1];
-
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box modal-grande" onClick={e => e.stopPropagation()}>
@@ -264,76 +246,16 @@ export const ModalEditarCliente = ({ cliente, baseId, onClose, onSalvo }) => {
         </div>
 
         {aba === 'dados' && (
-          <div>
-            <div className="grade-form">
-              {campo('nome', 'Nome completo', 'Ex: Marine Silva')}
-              {campo('cpf', 'CPF', '000.000.000-00')}
-            </div>
-            <div className="grade-form grade-form-3-1">
-              {campo('endereco', 'Endereço', 'Rua, bairro')}
-              {campo('numero', 'Nº', '123')}
-            </div>
-            <div className="grade-form">
-              {campo('senha', 'Login PPPoE', 'Ex: cliente123')}
-              <div className="campo">
-                <label className="rotulo" htmlFor="f-plano">Plano</label>
-                <select id="f-plano" className="entrada" value={form.plano} onChange={e => set('plano', e.target.value)}>
-                  <option value="">— selecione —</option>
-                  {PLANOS.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div className="campo">
-              <span className="rotulo">Roteador</span>
-              <div className="opcoes">
-                <button
-                  type="button"
-                  className={`opcao ${form.comodato ? 'opcao-ativa' : ''}`}
-                  onClick={() => set('comodato', true)}
-                >📦 Comodato</button>
-                <button
-                  type="button"
-                  className={`opcao ${!form.comodato ? 'opcao-ativa' : ''}`}
-                  onClick={() => set('comodato', false)}
-                >🏠 Próprio</button>
-              </div>
-            </div>
-
-            <div className="campo">
-              <span className="rotulo">Dia de vencimento</span>
-              <div className="opcoes">
-                {['10', '20', '30'].map(d => (
-                  <button
-                    key={d}
-                    type="button"
-                    className={`opcao ${form.dia_vencimento === d && !diaOutro ? 'opcao-ativa' : ''}`}
-                    onClick={() => { set('dia_vencimento', d); setDiaOutro(''); }}
-                  >
-                    Dia {d}
-                  </button>
-                ))}
-                <input
-                  className="entrada campo-dia"
-                  type="number"
-                  min="1"
-                  max="31"
-                  placeholder="Outro"
-                  value={diaOutro}
-                  onChange={e => { setDiaOutro(e.target.value); if (e.target.value) set('dia_vencimento', e.target.value); }}
-                />
-              </div>
-            </div>
-
-            {campo('observacao', 'Observação', 'Notas internas…')}
-
-            <div className="modal-secao">
-              <Recado msg={carneMsg} />
-              <button type="button" className="btn btn-roxo btn-bloco" onClick={solicitarCarne} disabled={solicitandoCarne}>
-                {solicitandoCarne ? 'Solicitando…' : '📋 Solicitar carnê físico'}
-              </button>
-            </div>
-          </div>
+          <AbaDados
+            form={form}
+            set={set}
+            campo={campo}
+            diaOutro={diaOutro}
+            setDiaOutro={setDiaOutro}
+            carneMsg={carneMsg}
+            solicitarCarne={solicitarCarne}
+            solicitandoCarne={solicitandoCarne}
+          />
         )}
 
         {aba === 'contato' && (
@@ -356,178 +278,45 @@ export const ModalEditarCliente = ({ cliente, baseId, onClose, onSalvo }) => {
         )}
 
         {aba === 'cobranca' && (
-          <div>
-            <div className="dica mb-3">
-              Em quais dias, contados do vencimento, este cliente é avisado. Sem configuração
-              própria ele segue o calendário padrão da base.
-            </div>
-
-            <div className="campo">
-              <span className="rotulo">🔔 Antes do vencimento</span>
-              {antes.length === 0 ? (
-                <div className="dica">Nenhum aviso antes.</div>
-              ) : (
-                <div className="linha g-1">
-                  {antes.map(o => (
-                    <span key={o} className="ficha ficha-info">
-                      {o}d
-                      <button type="button" onClick={() => setOffsets(offsets.filter(x => x !== o))} aria-label={`Remover ${o}`}>✕</button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="campo">
-              <span className="rotulo">⚠️ Depois do vencimento</span>
-              {depois.length === 0 ? (
-                <div className="dica">Nenhuma cobrança de atraso.</div>
-              ) : (
-                <div className="linha g-1">
-                  {depois.map(o => (
-                    <span key={o} className={`ficha ${o === ultimo ? 'ficha-erro' : 'ficha-alerta'}`}>
-                      +{o}d
-                      {o === ultimo && <em>risco de suspensão</em>}
-                      <button type="button" onClick={() => setOffsets(offsets.filter(x => x !== o))} aria-label={`Remover ${o}`}>✕</button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="linha" style={{ flexWrap: 'nowrap', marginBottom: 14 }}>
-              <input
-                className="entrada"
-                type="number"
-                placeholder="Ex: -1 (antes) ou 4 (depois)"
-                value={novoOffset}
-                onChange={e => setNovoOffset(e.target.value)}
-              />
-              <button
-                type="button"
-                className="btn btn-info"
-                onClick={() => {
-                  const n = parseInt(novoOffset, 10);
-                  if (!Number.isNaN(n) && !offsets.includes(n)) setOffsets([...offsets, n].sort((a, b) => a - b));
-                  setNovoOffset('');
-                }}
-              >
-                Adicionar
-              </button>
-            </div>
-
-            <Recado msg={configMsg} />
-
-            <div className="linha">
-              <button type="button" className="btn btn-primario" onClick={salvarConfig} disabled={salvandoConfig}>
-                {salvandoConfig ? 'Salvando…' : '💾 Salvar configuração'}
-              </button>
-              {!!cliente.config_cobranca && (
-                <button type="button" className="btn btn-perigo" onClick={removerConfig} disabled={salvandoConfig}>
-                  Remover
-                </button>
-              )}
-            </div>
-
-            <div className="modal-secao">
-              <Recado msg={cobrarMsg} />
-              <button type="button" className="btn btn-ok btn-bloco" onClick={cobrarAgora} disabled={cobrando}>
-                {cobrando ? 'Enviando…' : '📤 Cobrar agora'}
-              </button>
-            </div>
-          </div>
+          <AbaCobranca
+            offsets={offsets}
+            setOffsets={setOffsets}
+            temConfigPropria={!!cliente.config_cobranca}
+            configMsg={configMsg}
+            salvarConfig={salvarConfig}
+            removerConfig={removerConfig}
+            salvandoConfig={salvandoConfig}
+            cobrarMsg={cobrarMsg}
+            cobrarAgora={cobrarAgora}
+            cobrando={cobrando}
+          />
         )}
 
         {aba === 'promessa' && (
-          <div>
-            <div className="aviso aviso-info mb-3">
-              <span className="aviso-emoji">🤝</span>
-              <span className="aviso-corpo">
-                O cliente fica com status de promessa e o sistema acompanha o vencimento dela.
-              </span>
-            </div>
-
-            <div className="campo">
-              <label className="rotulo" htmlFor="data-promessa">Data prometida</label>
-              <input
-                id="data-promessa"
-                className="entrada"
-                type="date"
-                value={dataPromessa}
-                onChange={e => setDataPromessa(e.target.value)}
-              />
-            </div>
-
-            <Recado msg={promMsg} />
-
-            <button type="button" className="btn btn-roxo btn-bloco" onClick={salvarPromessa} disabled={salvandoProm}>
-              {salvandoProm ? 'Salvando…' : '🤝 Registrar promessa'}
-            </button>
-          </div>
+          <AbaPromessa
+            dataPromessa={dataPromessa}
+            setDataPromessa={setDataPromessa}
+            promMsg={promMsg}
+            salvarPromessa={salvarPromessa}
+            salvandoProm={salvandoProm}
+          />
         )}
 
         {aba === 'cancelar' && (
-          cancelado ? (
-            <div className="vazio">
-              <span className="vazio-emoji">✅</span>
-              Cancelamento registrado
-              <span className="vazio-dica">O cliente foi para a tela de cancelamentos.</span>
-            </div>
-          ) : (
-            <div>
-              <div className="aviso aviso-erro mb-3">
-                <span className="aviso-emoji">⚠️</span>
-                <span className="aviso-corpo">
-                  Cancelar remove {form.nome} da base
-                  <span className="aviso-detalhe">
-                    Se é só para parar de cobrar sem perder o cliente, use Bloquear na lista do dia.
-                  </span>
-                </span>
-              </div>
-
-              <div className="campo">
-                <span className="rotulo">Motivo</span>
-                <div className="opcoes" style={{ flexDirection: 'column' }}>
-                  {MOTIVOS_CANCELAMENTO.map(m => (
-                    <button
-                      key={m}
-                      type="button"
-                      className={`opcao opcao-lista ${motivoCancelamento === m ? 'opcao-ativa-perigo opcao-ativa' : ''}`}
-                      onClick={() => setMotivoCancelamento(m)}
-                    >
-                      {motivoCancelamento === m ? '● ' : '○ '}{m}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="campo">
-                <label className="rotulo" htmlFor="motivo-detalhe">Observação</label>
-                <textarea
-                  id="motivo-detalhe"
-                  className="entrada"
-                  rows={3}
-                  placeholder="Detalhes do cancelamento…"
-                  value={motivoDetalhe}
-                  onChange={e => setMotivoDetalhe(e.target.value)}
-                />
-              </div>
-
-              <Recado msg={cancelMsg} />
-
-              <button
-                type="button"
-                className="btn btn-perigo btn-bloco"
-                onClick={confirmarCancelamento}
-                disabled={salvandoCancel || !motivoCancelamento}
-              >
-                {salvandoCancel ? 'Registrando…' : '❌ Confirmar cancelamento'}
-              </button>
-            </div>
-          )
+          <AbaCancelar
+            nome={form.nome}
+            cancelado={cancelado}
+            motivo={motivoCancelamento}
+            setMotivo={setMotivoCancelamento}
+            detalhe={motivoDetalhe}
+            setDetalhe={setMotivoDetalhe}
+            cancelMsg={cancelMsg}
+            confirmar={confirmarCancelamento}
+            salvando={salvandoCancel}
+          />
         )}
 
-        {erro && <div className="aviso aviso-erro mt-2">{erro}</div>}
+        <Recado msg={erro ? { ok: false, txt: erro } : null} />
 
         <div className="modal-footer">
           <button type="button" className="btn" onClick={onClose}>Fechar</button>

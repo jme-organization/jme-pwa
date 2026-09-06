@@ -7,23 +7,14 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from './Card';
-import { Spinner } from './Spinner';
-import { BadgeCliente } from './BadgeCliente';
 import { ModalEditarCliente } from './ModalEditarCliente';
 import { ModalNovoClienteBase } from './ModalNovoClientebase';
-import { Pagination } from './Pagination';
+import { TabelaClientes, FILTROS } from './base/TabelaClientes';
+import { ColunaBloqueados } from './base/ColunaBloqueados';
 import * as XLSX from 'https://cdn.sheetjs.com/xlsx-0.20.0/package/xlsx.mjs';
 import { api } from '../api/client';
 
 const POR_PAGINA = 20;
-
-const FILTROS = [
-  ['todos', 'Todos'],
-  ['pago', '✅ Pagos'],
-  ['pendente', '⏳ Pendentes'],
-  ['inadimplente', '🔴 Inadimplentes'],
-  ['promessa', '🤝 Promessas'],
-];
 
 const refDoMes = (deslocamento = 0) => {
   const agora = new Date();
@@ -269,137 +260,34 @@ export const VisualizadorBase = ({ base, clienteDestacado, onVoltar }) => {
 
       <div className="base-colunas">
         <Card>
-          <div className="card-cab">
-            <input
-              className="entrada campo-largo"
-              placeholder="Buscar por nome, telefone, CPF ou endereço…"
-              value={busca}
-              onChange={e => setBusca(e.target.value)}
-            />
-            <div className="filtro-group">
-              {FILTROS.map(([v, rotulo]) => (
-                <button
-                  key={v}
-                  type="button"
-                  className={`filtro-btn ${filtro === v ? (v === 'inadimplente' ? 'filtro-ativo filtro-ativo-perigo' : 'filtro-ativo') : ''}`}
-                  onClick={() => setFiltro(v)}
-                >
-                  {rotulo}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="card-cab">
-            <span className="pag-info">
-              {filtrados.length === 0
-                ? '0 clientes'
-                : `${inicio + 1}–${Math.min(inicio + POR_PAGINA, filtrados.length)} de ${filtrados.length}`}
-            </span>
-            <div className="page-acoes linha-fim">
-              {filtrados.length > 0 && (
-                <button type="button" className="btn btn-pequeno" onClick={copiarNomes}>📋 Copiar nomes</button>
-              )}
-              <button type="button" className="btn btn-ok btn-pequeno" onClick={exportarExcel}>📥 Exportar Excel</button>
-            </div>
-          </div>
-
-          {loading ? (
-            <Spinner />
-          ) : filtrados.length === 0 ? (
-            <div className="vazio">
-              <span className="vazio-emoji">🔍</span>
-              Nenhum cliente com esse filtro
-              <span className="vazio-dica">Tente o filtro Todos, ou limpe a busca.</span>
-            </div>
-          ) : (
-            <>
-              <div className="tabela-scroll">
-                <table className="tabela">
-                  <thead>
-                    <tr>
-                      <th>Nome</th>
-                      <th>Telefone</th>
-                      <th>Endereço</th>
-                      <th>Plano</th>
-                      <th>Comodato</th>
-                      <th>Status</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {daPagina.map(c => (
-                      <tr key={c.id} className="linha-clicavel" onClick={() => setModalCliente(c)}>
-                        <td className="td-nome">{c.nome}</td>
-                        <td className="td-mono">{c.telefone || '—'}</td>
-                        <td className="td-corta">{c.endereco || '—'}</td>
-                        <td>{c.plano || '—'}</td>
-                        <td className="td-centro">{c.comodato ? '✅' : '—'}</td>
-                        <td><BadgeCliente status={c.status_calculado || c.status} /></td>
-                        <td className="td-fim">
-                          <button
-                            type="button"
-                            className="btn btn-suspende btn-pequeno"
-                            title="Bloquear: sai da lista e das contas do dia, sem cancelar"
-                            disabled={bloqueando === c.id}
-                            onClick={(e) => { e.stopPropagation(); alternarBloqueio(c, true); }}
-                          >
-                            {bloqueando === c.id ? '…' : '🚫 Bloquear'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <Pagination currentPage={pagina} totalPages={totalPaginas} onPageChange={setPagina} />
-            </>
-          )}
+          <TabelaClientes
+            clientes={daPagina}
+            loading={loading}
+            busca={busca}
+            setBusca={setBusca}
+            filtro={filtro}
+            setFiltro={setFiltro}
+            pagina={pagina}
+            setPagina={setPagina}
+            totalPaginas={totalPaginas}
+            inicio={inicio}
+            porPagina={POR_PAGINA}
+            totalFiltrados={filtrados.length}
+            bloqueando={bloqueando}
+            onAbrir={setModalCliente}
+            onBloquear={alternarBloqueio}
+            onCopiarNomes={copiarNomes}
+            onExportar={exportarExcel}
+          />
         </Card>
 
-        <Card className="base-bloqueados">
-          <div className="card-cab" style={{ display: 'block' }}>
-            <div className="card-titulo val-bloqueio">🚫 Bloqueados — dia {diaAtivo}</div>
-            <div className="dica">
-              {bloqueadosDoDia.length === 0
-                ? 'Ninguém bloqueado nesta data'
-                : `${bloqueadosDoDia.length} fora da cobrança e das contas`}
-            </div>
-          </div>
-
-          {bloqueadosDoDia.map(c => (
-            <div key={c.id} className="bloqueado-item">
-              <button type="button" className="bloqueado-nome" onClick={() => setModalCliente(c)}>
-                {c.nome}
-              </button>
-              <div className="td-mono">{c.telefone || '—'}</div>
-              {c.bloqueado_em && (
-                <div className="dica">
-                  desde {new Date(c.bloqueado_em).toLocaleDateString('pt-BR')}
-                  {c.motivo_bloqueio ? ` — ${c.motivo_bloqueio}` : ''}
-                </div>
-              )}
-              <div className="page-acoes mt-1">
-                <button
-                  type="button"
-                  className="btn btn-ok btn-pequeno"
-                  disabled={bloqueando === c.id}
-                  onClick={() => alternarBloqueio(c, false)}
-                >
-                  {bloqueando === c.id ? '…' : '↩ Desbloquear'}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-perigo btn-pequeno"
-                  title="Abre a ficha do cliente na aba de cancelamento"
-                  onClick={() => setModalCliente(c)}
-                >
-                  ❌ Cancelar
-                </button>
-              </div>
-            </div>
-          ))}
-        </Card>
+        <ColunaBloqueados
+          dia={diaAtivo}
+          clientes={bloqueadosDoDia}
+          bloqueando={bloqueando}
+          onDesbloquear={(c) => alternarBloqueio(c, false)}
+          onAbrir={setModalCliente}
+        />
       </div>
 
       {modalCliente && (
