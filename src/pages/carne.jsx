@@ -248,9 +248,17 @@ function AbaRenovacao() {
         simular: false,
       }, 120000);
       setPrevia(null);
+      const restantes = r.diagnostico?.futuros;
       setMsg(r.ok
-        ? { ok: true, txt: `✅ ${r.criadas.length} mensalidade(s) criada(s) para ${previa.cliente.nome}.` }
+        ? {
+            ok: true,
+            txt: `✅ ${r.criadas.length} mensalidade(s) criada(s) para ${previa.cliente.nome}.`
+              + (Number.isFinite(restantes) ? ` Agora ele tem ${restantes} mês(es) de carnê pela frente.` : ''),
+          }
         : { ok: false, txt: `Criei ${r.criadas.length} e parei: ${r.erros?.[0]?.erro || 'erro no SGP'}` });
+      // O backend relê os títulos e já atualiza a lista, então o refetch mostra
+      // o resultado na hora — antes a tela ficava dizendo "sem boleto futuro"
+      // até a rodada de 30 min passar, e parecia que a geração não funcionou.
       refetch();
     } catch (e) {
       setMsg({ ok: false, txt: e.message });
@@ -319,14 +327,14 @@ function AbaRenovacao() {
             </span>
             <span className="carne-meta">
               {c.ultimoVencimento ? `até ${String(c.ultimoVencimento).split('-').reverse().join('/')}` : 'nenhum em aberto'}
-              {c.valorUltimoPago ? ` · último pago ${fmtMoeda(c.valorUltimoPago)}` : ''}
+              {c.valorReferencia ? ` · carnê de ${fmtMoeda(c.valorReferencia)}` : ''}
               {c.vencidosEmAberto ? ` · ${c.vencidosEmAberto} vencido(s)` : ''}
             </span>
             {/* O SGP gera com o valor do CONTRATO, não com o do último carnê.
                 Quando os dois divergem, o dono precisa saber ANTES de gerar. */}
-            {c.valorContrato && c.valorUltimoPago && Math.abs(c.valorContrato - c.valorUltimoPago) >= 0.01 && (
+            {c.valorContrato && c.valorReferencia && Math.abs(c.valorContrato - c.valorReferencia) >= 0.01 && (
               <span className="badge badge-bloqueado" title="O SGP gera pelo valor do contrato. Ajuste o contrato no SGP se quiser outro valor.">
-                contrato {fmtMoeda(c.valorContrato)} ≠ último {fmtMoeda(c.valorUltimoPago)}
+                contrato {fmtMoeda(c.valorContrato)} ≠ carnê {fmtMoeda(c.valorReferencia)}
               </span>
             )}
             <div className="page-acoes linha-fim">
@@ -398,9 +406,9 @@ function AbaRenovacao() {
                       o SGP vai gerar a {fmtMoeda(previa.cliente.valorContrato)} (valor do contrato)
                     </span>
                   )}
-                  {previa.cliente.valorUltimoPago && (
+                  {previa.cliente.valorReferencia && (
                     <span className="badge badge-neutro">
-                      último carnê pago: {fmtMoeda(previa.cliente.valorUltimoPago)}
+                      carnê de hoje: {fmtMoeda(previa.cliente.valorReferencia)}
                     </span>
                   )}
                 </div>
@@ -409,15 +417,15 @@ function AbaRenovacao() {
                     <span key={c.competencia} className="badge badge-info">{c.competencia}</span>
                   ))}
                 </div>
-                {previa.cliente.valorContrato && previa.cliente.valorUltimoPago
-                  && Math.abs(previa.cliente.valorContrato - previa.cliente.valorUltimoPago) >= 0.01 && (
+                {previa.cliente.valorContrato && previa.cliente.valorReferencia
+                  && Math.abs(previa.cliente.valorContrato - previa.cliente.valorReferencia) >= 0.01 && (
                   <div className="aviso aviso-erro mt-3">
                     <span className="aviso-emoji">💰</span>
                     <span className="aviso-corpo">
                       O valor vai sair diferente do último carnê
                       <span className="aviso-detalhe">
-                        O SGP gera pelo contrato ({fmtMoeda(previa.cliente.valorContrato)}), e o último
-                        pago foi {fmtMoeda(previa.cliente.valorUltimoPago)}. Para gerar no valor certo,
+                        O SGP gera pelo contrato ({fmtMoeda(previa.cliente.valorContrato)}), e o carnê
+                        dele hoje é {fmtMoeda(previa.cliente.valorReferencia)}. Para gerar no valor certo,
                         ajuste o plano do contrato no SGP antes.
                       </span>
                     </span>
