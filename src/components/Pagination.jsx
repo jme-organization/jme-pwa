@@ -1,125 +1,68 @@
 // src/components/Pagination.jsx
+//
+// O estilo saia num <style jsx> — sintaxe do Next, que o Vite nao processa:
+// virava um <style jsx="true"> cru no DOM e um aviso de atributo invalido a
+// cada render. Agora as classes moram no index.css, com o resto do sistema.
 import React from 'react';
 
 export function Pagination({ currentPage, totalPages, onPageChange }) {
     if (totalPages <= 1) return null;
 
-    const isMobile = window.innerWidth <= 768;
-    const maxButtons = isMobile ? 3 : 5;
+    const maxBotoes = 5;
+    let inicio = Math.max(1, currentPage - Math.floor(maxBotoes / 2));
+    const fim = Math.min(totalPages, inicio + maxBotoes - 1);
+    if (fim - inicio + 1 < maxBotoes) inicio = Math.max(1, fim - maxBotoes + 1);
 
-    let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
-    let endPage = Math.min(totalPages, startPage + maxButtons - 1);
-
-    if (endPage - startPage + 1 < maxButtons) {
-        startPage = Math.max(1, endPage - maxButtons + 1);
-    }
-
-    const pages = [];
-    for (let i = startPage; i <= endPage; i++) {
-        pages.push(i);
-    }
+    const paginas = [];
+    for (let i = inicio; i <= fim; i++) paginas.push(i);
 
     return (
-        <div className="pagination">
+        <nav className="paginacao" aria-label="Paginação">
             <button
-                className="page-btn"
+                type="button"
+                className="pag-btn"
                 onClick={() => onPageChange(currentPage - 1)}
                 disabled={currentPage === 1}
             >
                 ← Anterior
             </button>
 
-            {startPage > 1 && (
+            {inicio > 1 && (
                 <>
-                    <button className="page-btn" onClick={() => onPageChange(1)}>1</button>
-                    {startPage > 2 && <span className="page-dots">...</span>}
+                    <button type="button" className="pag-btn" onClick={() => onPageChange(1)}>1</button>
+                    {inicio > 2 && <span className="pag-pontos">…</span>}
                 </>
             )}
 
-            {pages.map(page => (
+            {paginas.map(p => (
                 <button
-                    key={page}
-                    className={`page-btn ${currentPage === page ? 'page-active' : ''}`}
-                    onClick={() => onPageChange(page)}
+                    key={p}
+                    type="button"
+                    className={`pag-btn ${currentPage === p ? 'pag-ativa' : ''}`}
+                    aria-current={currentPage === p ? 'page' : undefined}
+                    onClick={() => onPageChange(p)}
                 >
-                    {page}
+                    {p}
                 </button>
             ))}
 
-            {endPage < totalPages && (
+            {fim < totalPages && (
                 <>
-                    {endPage < totalPages - 1 && <span className="page-dots">...</span>}
-                    <button className="page-btn" onClick={() => onPageChange(totalPages)}>
+                    {fim < totalPages - 1 && <span className="pag-pontos">…</span>}
+                    <button type="button" className="pag-btn" onClick={() => onPageChange(totalPages)}>
                         {totalPages}
                     </button>
                 </>
             )}
 
             <button
-                className="page-btn"
+                type="button"
+                className="pag-btn"
                 onClick={() => onPageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
             >
                 Próxima →
             </button>
-
-            <style jsx>{`
-                .pagination {
-                    display: flex;
-                    flex-wrap: wrap;
-                    justify-content: center;
-                    align-items: center;
-                    gap: 5px;
-                    padding: 1rem;
-                    margin-top: 1rem;
-                }
-                
-                .page-btn {
-                    padding: 8px 12px;
-                    border-radius: 6px;
-                    border: 1px solid var(--border);
-                    background: var(--bg-secondary);
-                    color: var(--text-secondary);
-                    font-size: 13px;
-                    font-weight: 500;
-                    cursor: pointer;
-                    transition: all .15s;
-                    min-width: 40px;
-                }
-                
-                .page-btn:hover:not(:disabled) {
-                    background: var(--blue);
-                    color: white;
-                    border-color: var(--blue);
-                }
-                
-                .page-btn:disabled {
-                    opacity: 0.5;
-                    cursor: not-allowed;
-                }
-                
-                .page-active {
-                    background: var(--blue);
-                    color: white;
-                    border-color: var(--blue);
-                }
-                
-                .page-dots {
-                    color: var(--text-muted);
-                    padding: 0 5px;
-                }
-                
-                @media (max-width: 768px) {
-                    .pagination {
-                        gap: 3px;
-                    }
-                    .page-btn {
-                        padding: 6px 8px;
-                        font-size: 12px;
-                        min-width: 32px;
-                    }
-                }
-            `}</style>
-        </div>
+        </nav>
     );
 }

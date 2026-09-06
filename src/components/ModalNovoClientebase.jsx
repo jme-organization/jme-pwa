@@ -1,207 +1,130 @@
-// src/components/ModalNovoClienteBase.jsx
+// src/components/ModalNovoClientebase.jsx — cadastro rapido dentro da base.
 import React, { useState } from 'react';
 import { api } from '../api/client';
 
+const PLANOS = [
+  'Cabo 50MB — R$50',
+  'Fibra 200MB — R$60',
+  'Fibra 200MB + IPTV — R$70',
+];
+
 export const ModalNovoClienteBase = ({ baseId, diaDefault, onClose, onSalvo }) => {
   const [form, setForm] = useState({
-    nome: "",
-    cpf: "",
-    telefone: "",
-    endereco: "",
-    numero: "",
-    senha: "",
-    plano: "",
-    forma_pagamento: "pix",
+    nome: '',
+    cpf: '',
+    telefone: '',
+    endereco: '',
+    numero: '',
+    senha: '',
+    plano: '',
+    forma_pagamento: 'pix',
     dia_vencimento: String(diaDefault || 10),
-    observacao: "",
+    observacao: '',
   });
+  const [diaOutro, setDiaOutro] = useState(
+    !['10', '20', '30'].includes(String(diaDefault || 10)) ? String(diaDefault || '') : ''
+  );
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState(null);
-  const [diaOutro, setDiaOutro] = useState(!["10","20","30"].includes(String(diaDefault || 10)) ? String(diaDefault || "") : "");
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const salvar = async () => {
-    if (!form.nome.trim()) {
-      setErro("Nome é obrigatório");
-      return;
-    }
+    if (!form.nome.trim()) { setErro('Nome é obrigatório'); return; }
     setSalvando(true);
     setErro(null);
     try {
-      const json = await api.post("/api/clientes", {
+      const json = await api.post('/api/clientes', {
         ...form,
-        base_id: parseInt(baseId),
-        dia_vencimento: parseInt(form.dia_vencimento)
+        base_id: baseId,
+        dia_vencimento: parseInt(form.dia_vencimento, 10) || 10,
       });
-      if (json.id) {
+      if (json?.id) {
         onSalvo(json);
         onClose();
       } else {
-        setErro(json.erro || "Erro ao salvar");
+        setErro(json?.erro || 'Não consegui salvar');
       }
     } catch (e) {
-      console.error('Erro ao criar cliente:', e);
-      setErro("Falha de conexão: " + e.message);
+      setErro(e.message || 'Falha de conexão');
     }
     setSalvando(false);
   };
 
-  const inp = (k, label, placeholder = "", type = "text") => (
-    <div style={{ marginBottom: 12 }}>
-      <label style={{ display: "block", fontSize: 11, color: "#64748b", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-        {label}
-      </label>
+  const campo = (k, label, placeholder = '') => (
+    <div className="campo">
+      <label className="rotulo" htmlFor={`n-${k}`}>{label}</label>
       <input
-        type={type}
+        id={`n-${k}`}
+        className="entrada"
         value={form[k]}
-        onChange={e => set(k, e.target.value)}
         placeholder={placeholder}
-        style={{
-          width: "100%",
-          padding: "9px 12px",
-          borderRadius: 8,
-          border: "1px solid #1e3a5f",
-          background: "#0d1a2e",
-          color: "#e2e8f0",
-          fontSize: 13,
-          boxSizing: "border-box"
-        }}
+        onChange={e => set(k, e.target.value)}
       />
     </div>
   );
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box modal-grande" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
-        <div className="modal-title" style={{ fontSize: '1.25rem', fontWeight: 700, color: '#38bdf8', marginBottom: 16 }}>➕ Novo Cliente</div>
+      <div className="modal-box modal-grande" onClick={e => e.stopPropagation()}>
+        <div className="modal-title">Novo cliente</div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 12px" }}>
-          {inp("nome", "Nome completo *", "Ex: Marine Silva")}
-          {inp("cpf", "CPF", "000.000.000-00")}
+        <div className="grade-form">
+          {campo('nome', 'Nome completo *', 'Ex: Marine Silva')}
+          {campo('cpf', 'CPF', '000.000.000-00')}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 12px" }}>
-          {inp("telefone", "Telefone / WhatsApp", "81999999999")}
+        <div className="grade-form">
+          {campo('telefone', 'Telefone / WhatsApp', '81999999999')}
+          <div className="campo">
+            <label className="rotulo" htmlFor="n-plano">Plano</label>
+            <select id="n-plano" className="entrada" value={form.plano} onChange={e => set('plano', e.target.value)}>
+              <option value="">— selecione —</option>
+              {PLANOS.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
         </div>
 
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ display: "block", fontSize: 11, color: "#64748b", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            Plano
-          </label>
-          <select
-            value={form.plano}
-            onChange={e => set("plano", e.target.value)}
-            style={{
-              width: "100%",
-              padding: "9px 12px",
-              borderRadius: 8,
-              border: "1px solid #1e3a5f",
-              background: "#0d1a2e",
-              color: form.plano ? "#e2e8f0" : "#64748b",
-              fontSize: 13,
-              boxSizing: "border-box"
-            }}
-          >
-            <option value="">-- selecione --</option>
-            <option value="Cabo 50MB — R$50">Cabo 50MB — R$ 50</option>
-            <option value="Fibra 200MB — R$60">Fibra 200MB — R$ 60</option>
-            <option value="Fibra 200MB + IPTV — R$70">Fibra 200MB + IPTV — R$ 70</option>
-          </select>
+        <div className="grade-form grade-form-3-1">
+          {campo('endereco', 'Endereço', 'Rua, bairro')}
+          {campo('numero', 'Nº', '123')}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "3fr 1fr", gap: "0 12px" }}>
-          {inp("endereco", "Endereço", "Rua, bairro")}
-          {inp("numero", "Nº da casa", "123")}
-        </div>
+        {campo('senha', 'Login PPPoE', 'Ex: cliente123')}
 
-        {inp("senha", "PPPoE (senha da conexão)", "Ex: cliente123")}
-
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ display: "block", fontSize: 11, color: "#64748b", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            Dia de Vencimento
-          </label>
-          <div style={{ display: "flex", gap: 6 }}>
-            {["10", "20", "30"].map(d => (
+        <div className="campo">
+          <span className="rotulo">Dia de vencimento</span>
+          <div className="opcoes">
+            {['10', '20', '30'].map(d => (
               <button
                 key={d}
-                onClick={() => { set("dia_vencimento", d); setDiaOutro(""); }}
-                style={{
-                  flex: 1,
-                  padding: "9px 0",
-                  borderRadius: 8,
-                  border: "1px solid",
-                  borderColor: form.dia_vencimento === d && !diaOutro ? "#38bdf8" : "#1e3a5f",
-                  background: form.dia_vencimento === d && !diaOutro ? "rgba(56,189,248,0.12)" : "transparent",
-                  color: form.dia_vencimento === d && !diaOutro ? "#38bdf8" : "#64748b",
-                  fontWeight: 700,
-                  cursor: "pointer"
-                }}
+                type="button"
+                className={`opcao ${form.dia_vencimento === d && !diaOutro ? 'opcao-ativa' : ''}`}
+                onClick={() => { set('dia_vencimento', d); setDiaOutro(''); }}
               >
                 Dia {d}
               </button>
             ))}
             <input
+              className="entrada campo-dia"
               type="number"
               min="1"
               max="31"
               placeholder="Outro"
               value={diaOutro}
-              onChange={e => { setDiaOutro(e.target.value); if (e.target.value) set("dia_vencimento", e.target.value); }}
-              style={{
-                flex: 1,
-                padding: "9px 0",
-                borderRadius: 8,
-                textAlign: "center",
-                border: "1px solid",
-                borderColor: diaOutro ? "#38bdf8" : "#1e3a5f",
-                background: diaOutro ? "rgba(56,189,248,0.12)" : "#0d1a2e",
-                color: diaOutro ? "#38bdf8" : "#e2e8f0",
-                fontWeight: 700,
-                fontSize: 13,
-                boxSizing: "border-box"
-              }}
+              onChange={e => { setDiaOutro(e.target.value); if (e.target.value) set('dia_vencimento', e.target.value); }}
             />
           </div>
         </div>
 
-        {inp("observacao", "Observação", "Notas internas...")}
+        {campo('observacao', 'Observação', 'Notas internas…')}
 
-        {erro && <div style={{ color: "#f87171", fontSize: 13, marginBottom: 8 }}>{erro}</div>}
+        {erro && <div className="aviso aviso-erro">{erro}</div>}
 
-        <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-          <button
-            className="btn-save"
-            onClick={salvar}
-            disabled={salvando}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 8,
-              border: 'none',
-              background: salvando ? '#1e3a5f' : '#2563eb',
-              color: '#fff',
-              fontWeight: 600,
-              fontSize: 13,
-              cursor: salvando ? 'not-allowed' : 'pointer'
-            }}
-          >
-            {salvando ? "Salvando..." : "💾 Criar Cliente"}
-          </button>
-          <button
-            className="btn-cancel"
-            onClick={onClose}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 8,
-              border: '1px solid #374151',
-              background: 'transparent',
-              color: '#94a3b8',
-              fontWeight: 600,
-              fontSize: 13,
-              cursor: 'pointer'
-            }}
-          >
-            Cancelar
+        <div className="modal-footer">
+          <button type="button" className="btn" onClick={onClose}>Cancelar</button>
+          <button type="button" className="btn btn-primario" onClick={salvar} disabled={salvando}>
+            {salvando ? 'Salvando…' : 'Criar cliente'}
           </button>
         </div>
       </div>

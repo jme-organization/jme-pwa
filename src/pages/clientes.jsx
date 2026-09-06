@@ -1,4 +1,11 @@
-// src/pages/Clientes.jsx
+// src/pages/clientes.jsx — as bases e, dentro delas, o visualizador.
+//
+// Dois defeitos moravam aqui, os dois pela mesma causa (a base aberta era
+// guardada em useState, em paralelo com a URL):
+//   1. "← Bases" nao voltava: navigate('/clientes') limpava a querystring, mas
+//      o estado seguia apontando pra base e a tela nao mudava;
+//   2. base inexistente chamava setBaseAtiva(null) DURANTE o render.
+// Agora a base aberta e derivada da URL. A URL e a unica fonte da verdade.
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useFetch } from '../hooks/useFetch';
@@ -8,263 +15,168 @@ import { VisualizadorBase } from '../components/VisualizadorBase';
 import { ModalCriarBase } from '../components/ModalCriarBase';
 import { api } from '../api/client';
 
-export function PageClientes({ onBasesCarregadas }) {
+export function PageClientes() {
   const [bases, setBases] = useState(null);
-  const [baseAtiva, setBaseAtiva] = useState(null);
-  const [modalCriar, setModalCriar] = useState(false);
-  const { data: planilha } = useFetch("/api/planilha/resumo", 60000);
+  const [erro, setErro] = useState(null);
+  const { data: planilha } = useFetch('/api/planilha/resumo', 60000);
   const location = useLocation();
   const navigate = useNavigate();
 
+  const params = new URLSearchParams(location.search);
+  const baseIdUrl = params.get('base');
+  const clienteIdUrl = params.get('cliente');
+  const criando = params.get('acao') === 'nova';
+
   const carregarBases = useCallback(async () => {
     try {
-      const b = await api.get("/api/bases");
-      setBases(b);
-      if (onBasesCarregadas) onBasesCarregadas(b);
-    } catch (error) {
-      console.error("Erro ao carregar bases:", error);
+      setErro(null);
+      setBases(await api.get('/api/bases'));
+    } catch (e) {
+      setErro(e.message || 'Não consegui carregar as bases');
+      setBases([]);
     }
-  }, [onBasesCarregadas]);
+  }, []);
 
-  useEffect(() => { 
-    carregarBases(); 
-  }, [carregarBases]);
-
-  // Verifica querystring para abrir base ou modal
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const baseId = params.get("base");
-    const acao = params.get("acao");
-    if (baseId && bases) setBaseAtiva(baseId);
-    if (acao === "nova") setModalCriar(true);
-  }, [location.search, bases]);
+  useEffect(() => { carregarBases(); }, [carregarBases]);
 
   const deletarBase = async (base) => {
     if (!confirm(`Excluir a base "${base.nome}" e todos os seus clientes?`)) return;
     try {
       await api.delete(`/api/bases/${base.id}`);
       carregarBases();
-    } catch (error) {
-      alert("Erro ao excluir base");
+    } catch (e) {
+      alert(`Não consegui excluir: ${e.message}`);
     }
   };
 
-  // Enriquece as bases com dados da planilha (para JME)
+  // A base JME tem os numeros na planilha, nao no proprio documento.
   const basesExibir = (bases || []).map(b => {
-    if (b.nome === "JME" && planilha) {
-      const jmeDias = Object.entries(planilha).map(([aba, info]) => ({
-        dia: parseInt(aba.replace("Data ", "")),
-        total: (info.pagos || 0) + (info.pendentes || 0),
-        pagos: info.pagos || 0,
-        pendentes: info.pendentes || 0,
-        clientes: info.clientes || [],
-      }));
-      return {
-        ...b,
-        jmeDias,
-        total: jmeDias.reduce((s, d) => s + d.total, 0),
-        pagos: jmeDias.reduce((s, d) => s + d.pagos, 0)
-      };
-    }
-    return b;
+    if (b.nome !== 'JME' || !planilha) return b;
+    const dias = Object.entries(planilha).map(([aba, info]) => ({
+      dia: parseInt(aba.replace('Data ', ''), 10),
+      total: (info.pagos || 0) + (info.pendentes || 0),
+      pagos: info.pagos || 0,
+      pendentes: info.pendentes || 0,
+      clientes: info.clientes || [],
+    }));
+    return {
+      ...b,
+      jmeDias: dias,
+      total: dias.reduce((s, d) => s + d.total, 0),
+      pagos: dias.reduce((s, d) => s + d.pagos, 0),
+    };
   });
 
-  // Se uma base específica foi selecionada, mostra o visualizador
-  if (baseAtiva) {
-    const base = basesExibir.find(b => b.id === baseAtiva);
+  if (baseIdUrl) {
+    if (!bases) return <div className="page"><Spinner /></div>;
+    const base = basesExibir.find(b => String(b.id) === String(baseIdUrl));
     if (!base) {
-      setBaseAtiva(null);
-      return null;
+      return (
+        <div className="page">
+          <button type="button" className="btn btn-fantasma" onClick={() => navigate('/clientes')}>← Bases</button>
+          <div className="card card-pad mt-3">
+            <div className="vazio">
+              <span className="vazio-emoji">🔍</span>
+              Base não encontrada
+              <span className="vazio-dica">Ela pode ter sido excluída em outra aba.</span>
+            </div>
+          </div>
+        </div>
+      );
     }
-    // Usa o mesmo visualizador para TODAS as bases
-    return <VisualizadorBase base={base} onVoltar={() => navigate('/clientes')} />;
+    return (
+      <VisualizadorBase
+        base={base}
+        clienteDestacado={clienteIdUrl}
+        onVoltar={() => navigate('/clientes')}
+      />
+    );
   }
 
-  // Tela de listagem de bases
   return (
     <div className="page">
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        marginBottom: 20 
-      }}>
-        <div className="page-title">Bases de Clientes</div>
-        <button 
-          onClick={() => setModalCriar(true)} 
-          style={{
-            padding: '8px 16px',
-            borderRadius: 8,
-            border: 'none',
-            background: '#2563eb',
-            color: '#fff',
-            fontWeight: 600,
-            fontSize: 13,
-            cursor: 'pointer'
-          }}
-        >
-          + Nova Base
-        </button>
+      <div className="page-topo">
+        <div>
+          <h1 className="page-title">Bases de clientes</h1>
+          <div className="page-sub">Cada base tem seus dias de vencimento e seu próprio ciclo de cobrança.</div>
+        </div>
+        <div className="page-acoes">
+          <button type="button" className="btn btn-primario" onClick={() => navigate('/clientes?acao=nova')}>
+            + Nova base
+          </button>
+        </div>
       </div>
+
+      {erro && <div className="aviso aviso-erro mb-3">{erro}</div>}
 
       {!bases ? (
         <Spinner />
       ) : bases.length === 0 ? (
-        <Card style={{ padding: '2rem', textAlign: 'center' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📁</div>
-          <div style={{ fontSize: 16, color: '#64748b' }}>Nenhuma base cadastrada</div>
-          <button 
-            onClick={() => setModalCriar(true)}
-            style={{
-              marginTop: 16,
-              padding: '8px 16px',
-              borderRadius: 8,
-              border: 'none',
-              background: '#2563eb',
-              color: '#fff',
-              fontWeight: 600,
-              fontSize: 13,
-              cursor: 'pointer'
-            }}
-          >
-            Criar primeira base
-          </button>
+        <Card>
+          <div className="vazio">
+            <span className="vazio-emoji">📁</span>
+            Nenhuma base cadastrada
+            <span className="vazio-dica">Crie a primeira para começar a cobrar.</span>
+          </div>
         </Card>
       ) : (
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
-          gap: 16 
-        }}>
+        <div className="grade grade-auto">
           {basesExibir.map(base => {
             const pct = base.total > 0 ? Math.round((base.pagos / base.total) * 100) : 0;
-            const isJME = base.nome === "JME";
-            
+            const principal = base.nome === 'JME';
             return (
-              <Card
-                key={base.id}
-                onClick={() => navigate(`/clientes?base=${base.id}`)}
-                style={{ 
-                  cursor: "pointer", 
-                  padding: 0,
-                  transition: 'transform 0.2s',
-                  ':hover': { transform: 'translateY(-2px)' }
-                }}
-              >
-                <div style={{ padding: '16px' }}>
-                  {/* Cabeçalho */}
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center', 
-                    marginBottom: 8 
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontWeight: 700, color: '#e2e8f0' }}>{base.nome}</span>
-                      {isJME && (
-                        <span style={{
-                          fontSize: 10,
-                          padding: '2px 6px',
-                          borderRadius: 4,
-                          background: '#2563eb',
-                          color: '#fff',
-                          fontWeight: 600
-                        }}>
-                          Principal
-                        </span>
-                      )}
-                    </div>
-                    {!isJME && (
-                      <button 
-                        onClick={(e) => { 
-                          e.stopPropagation(); 
-                          deletarBase(base); 
-                        }} 
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#64748b',
-                          cursor: 'pointer',
-                          fontSize: 14
-                        }}
-                      >
-                        🗑️
-                      </button>
-                    )}
+              <Card key={base.id} className="base-card">
+                <button
+                  type="button"
+                  className="base-card-alvo"
+                  onClick={() => navigate(`/clientes?base=${base.id}`)}
+                >
+                  <div className="linha">
+                    <span className="base-card-nome">{base.nome}</span>
+                    {principal && <span className="badge badge-info">Principal</span>}
                   </div>
 
-                  {/* Descrição */}
-                  {base.descricao && (
-                    <div style={{ 
-                      fontSize: 12, 
-                      color: '#64748b', 
-                      marginBottom: 12 
-                    }}>
-                      {base.descricao}
-                    </div>
-                  )}
+                  {base.descricao && <div className="dica">{base.descricao}</div>}
 
-                  {/* Dias de vencimento */}
-                  <div style={{ 
-                    display: 'flex', 
-                    gap: 6, 
-                    marginBottom: 12, 
-                    flexWrap: 'wrap' 
-                  }}>
+                  <div className="linha" style={{ gap: 6, margin: '12px 0' }}>
                     {(base.dias || []).map(d => (
-                      <span key={d} style={{
-                        padding: '4px 8px',
-                        borderRadius: 6,
-                        background: '#1a1d2e',
-                        fontSize: 11,
-                        color: '#94a3b8'
-                      }}>
-                        Dia {d}
-                      </span>
+                      <span key={d} className="badge badge-neutro">Dia {d}</span>
                     ))}
                   </div>
 
-                  {/* Barra de progresso */}
-                  <div style={{ 
-                    height: 4, 
-                    background: '#1e2130', 
-                    borderRadius: 2, 
-                    marginBottom: 12 
-                  }}>
-                    <div style={{ 
-                      height: '100%', 
-                      width: `${pct}%`, 
-                      background: '#4ade80', 
-                      borderRadius: 2 
-                    }} />
+                  <div className="barra">
+                    {/* largura calculada em tempo de execucao */}
+                    <div className="barra-preenche" style={{ width: `${pct}%` }} />
                   </div>
 
-                  {/* Estatísticas */}
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    fontSize: 12 
-                  }}>
-                    <span style={{ color: '#4ade80' }}>✅ {base.pagos} pagos</span>
-                    <span style={{ color: '#f59e0b' }}>⏳ {base.total - base.pagos} pendentes</span>
-                    <span style={{ color: '#94a3b8' }}>{pct}%</span>
+                  <div className="base-item-meta mt-1">
+                    <span className="val-ok">{base.pagos ?? 0} pagos</span>
+                    <span className="val-alerta">{Math.max(0, (base.total ?? 0) - (base.pagos ?? 0))} pendentes</span>
+                    <span>{pct}%</span>
                   </div>
-                </div>
+                </button>
+
+                {!principal && (
+                  <div className="base-card-rodape">
+                    <button
+                      type="button"
+                      className="btn btn-perigo btn-pequeno"
+                      onClick={() => deletarBase(base)}
+                    >
+                      🗑️ Excluir base
+                    </button>
+                  </div>
+                )}
               </Card>
             );
           })}
         </div>
       )}
 
-      {/* Modal de criação de base */}
-      {modalCriar && (
+      {criando && (
         <ModalCriarBase
-          onClose={() => { setModalCriar(false); navigate('/clientes'); }}
-          onCriada={() => {
-            carregarBases();
-            setModalCriar(false);
-            navigate('/clientes');
-          }}
+          onClose={() => navigate('/clientes')}
+          onCriada={() => { carregarBases(); navigate('/clientes'); }}
         />
       )}
     </div>

@@ -1,4 +1,4 @@
-// src/pages/Cobranca.jsx
+// src/pages/cobranca.jsx — disparo manual, agenda do mes e o que ja saiu.
 import React, { useState } from 'react';
 import { useFetch } from '../hooks/useFetch';
 import { Card } from '../components/Card';
@@ -6,218 +6,165 @@ import { Spinner } from '../components/Spinner';
 import { fmtDate } from '../utils/formatadores';
 import { api } from '../api/client';
 
-const TIPOS_COBRANCA = [
-  { value: "", label: "🔄 Automático (por data)" },
-  { value: "lembrete", label: "🔔 Lembrete (D-1)" },
-  { value: "atraso", label: "⏰ Atraso" },
-  { value: "atraso_final", label: "⚠️ Atraso Final" },
-  { value: "limite", label: "⛔ Limite (suspensão hoje)" },
-  { value: "reconquista", label: "📞 Reconquista" },
-  { value: "reconquista_final", label: "🚨 Reconquista Final" },
+// Os tipos vivem no backend (services/tipoCobranca.js). Aqui e so o rotulo.
+const TIPOS = [
+  { value: '', label: '🔄 Automático (pela data)' },
+  { value: 'lembrete', label: '🔔 Lembrete (D-1)' },
+  { value: 'atraso', label: '⏰ Atraso' },
+  { value: 'atraso_final', label: '⚠️ Atraso final' },
+  { value: 'limite', label: '⛔ Limite (suspensão hoje)' },
+  { value: 'reconquista', label: '📞 Reconquista' },
+  { value: 'reconquista_final', label: '🚨 Reconquista final' },
 ];
 
 export function PageCobranca() {
-  const { data: agenda, loading: loadAgenda, refetch: refetchAgenda } = useFetch("/api/cobrar/agenda");
-  const { data: logs, refetch: refetchLogs } = useFetch("/api/logs/cobrancas?limit=20");
-  const [data, setData] = useState("10");
-  const [tipo, setTipo] = useState("");
+  const { data: agenda, loading: carregandoAgenda, refetch: recarregarAgenda } = useFetch('/api/cobrar/agenda');
+  const { data: logs, refetch: recarregarLogs } = useFetch('/api/logs/cobrancas?limit=20');
+
+  const [data, setData] = useState('10');
+  const [tipo, setTipo] = useState('');
   const [disparando, setDisparando] = useState(false);
   const [resultado, setResultado] = useState(null);
-  const [modalConfirm, setModalConfirm] = useState(null); // null | { data, tipo }
-  const [buscaLog, setBuscaLog] = useState("");
-  const [logExpandido, setLogExpandido] = useState(null);
+  const [confirmacao, setConfirmacao] = useState(null);
+  const [busca, setBusca] = useState('');
+  const [expandido, setExpandido] = useState(null);
 
-  const labelTipo = (t) => TIPOS_COBRANCA.find(o => o.value === t)?.label || t || "—";
+  const rotuloTipo = (t) => TIPOS.find(o => o.value === t)?.label || t || '—';
 
-  const pedirConfirmacao = () => {
-    setModalConfirm({ data, tipo: tipo || 'automático' });
-  };
-
-  const confirmarDisparo = async (forcando = false) => {
-    setModalConfirm(null);
+  const disparar = async (forcando = false) => {
+    setConfirmacao(null);
     setDisparando(true);
     setResultado(null);
     try {
-      const json = await api.post("/api/cobrar/manual", { data, tipo: tipo || undefined, forcar: forcando });
-      if (json.jaDisparado) {
-        setModalConfirm({ data, tipo: tipo || 'automático', jaDisparado: true, aviso: json.aviso });
+      const json = await api.post('/api/cobrar/manual', { data, tipo: tipo || undefined, forcar: forcando }, 30000);
+      if (json?.jaDisparado) {
+        setConfirmacao({ data, tipo: tipo || 'automático', jaDisparado: true, aviso: json.aviso });
       } else {
-        setResultado({ ok: true, mensagem: `✅ Disparo iniciado! As mensagens estão sendo enviadas em background.` });
-        setTimeout(() => { refetchLogs(); refetchAgenda(); }, 3000);
+        setResultado({ ok: true, txt: 'Disparo iniciado. As mensagens saem em segundo plano.' });
+        setTimeout(() => { recarregarLogs(); recarregarAgenda(); }, 3000);
       }
     } catch (e) {
-      setResultado({ ok: false, mensagem: e.message || "Falha de conexão com o servidor" });
+      setResultado({ ok: false, txt: e.message || 'Falha de conexão com o servidor' });
     }
     setDisparando(false);
   };
 
   const hoje = agenda?.diaAtual;
   const pendencia = agenda?.pendencia;
+  const filtrados = (logs || []).filter(r => !busca || (r.nome || '').toLowerCase().includes(busca.toLowerCase()));
 
   return (
     <div className="page">
-      <div className="page-title">📬 Cobranças</div>
+      <div className="page-topo">
+        <div>
+          <h1 className="page-title">Cobranças</h1>
+          <div className="page-sub">O disparo manda mensagem de verdade para os clientes elegíveis da data.</div>
+        </div>
+      </div>
 
       {pendencia && (
-        <div style={{
-          background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.35)",
-          borderRadius: 10, padding: "14px 18px", marginBottom: "1.5rem", display: "flex",
-          alignItems: "flex-start", gap: 12
-        }}>
-          <span style={{ fontSize: 22 }}>⏸️</span>
-          <div>
-            <div style={{ fontWeight: 700, color: "#fbbf24", marginBottom: 4 }}>Cobrança adiada pendente</div>
-            <div style={{ color: "#94a3b8", fontSize: 13 }}>
-              Cobrança do dia <b style={{ color: "#e2e8f0" }}>{pendencia.dia}/{String(pendencia.mes).padStart(2, "0")}</b> foi bloqueada
-              (rede: <b style={{ color: "#e2e8f0" }}>{pendencia.motivoBloqueio}</b>) e será disparada automaticamente
-              no próximo dia útil às 11h.
-            </div>
-            <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
-              Datas: {pendencia.entradas?.map(e => `Data ${e.data} — ${e.tipo}`).join(", ")}
-            </div>
-          </div>
+        <div className="aviso aviso-alerta mb-4">
+          <span className="aviso-emoji">⏸️</span>
+          <span className="aviso-corpo">
+            Cobrança do dia {pendencia.dia}/{String(pendencia.mes).padStart(2, '0')} foi adiada
+            (rede: {pendencia.motivoBloqueio}) e sai sozinha no próximo dia útil, às 11h.
+            <span className="aviso-detalhe">
+              {pendencia.entradas?.map(e => `Data ${e.data} — ${e.tipo}`).join(' · ')}
+            </span>
+          </span>
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginBottom: "1.5rem" }}>
-        <Card style={{ padding: "1.5rem" }}>
-          <div style={{ fontWeight: 700, color: "#e2e8f0", marginBottom: "1.2rem", fontSize: 15 }}>
-            🚀 Disparo Manual
+      <div className="grade grade-cobranca">
+        <Card className="card-pad">
+          <div className="secao-rotulo">🚀 Disparo manual</div>
+
+          <div className="campo">
+            <span className="rotulo">Data de vencimento</span>
+            <div className="opcoes">
+              {['10', '20', '30'].map(d => (
+                <button
+                  key={d}
+                  type="button"
+                  className={`opcao ${data === d ? 'opcao-ativa' : ''}`}
+                  onClick={() => setData(d)}
+                >
+                  Dia {d}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <label style={{
-            display: "block", fontSize: 12, color: "#64748b", marginBottom: 4,
-            textTransform: "uppercase", letterSpacing: "0.05em"
-          }}>
-            Data de Vencimento
-          </label>
-          <div style={{ display: "flex", gap: 8, marginBottom: "1rem" }}>
-            {["10", "20", "30"].map(d => (
-              <button
-                key={d}
-                onClick={() => setData(d)}
-                style={{
-                  flex: 1, padding: "10px 0", borderRadius: 8, border: "1px solid",
-                  borderColor: data === d ? "#38bdf8" : "#1e3a5f",
-                  background: data === d ? "rgba(56,189,248,0.12)" : "transparent",
-                  color: data === d ? "#38bdf8" : "#64748b",
-                  fontWeight: 700, fontSize: 16, cursor: "pointer", transition: "all .15s"
-                }}
-              >
-                Dia {d}
-              </button>
-            ))}
+          <div className="campo">
+            <label className="rotulo" htmlFor="tipo-msg">Tipo de mensagem</label>
+            <select id="tipo-msg" className="entrada" value={tipo} onChange={e => setTipo(e.target.value)}>
+              {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
           </div>
-
-          <label style={{
-            display: "block", fontSize: 12, color: "#64748b", marginBottom: 4,
-            textTransform: "uppercase", letterSpacing: "0.05em"
-          }}>
-            Tipo de Mensagem
-          </label>
-          <select
-            value={tipo}
-            onChange={(e) => setTipo(e.target.value)}
-            style={{
-              width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #1e3a5f",
-              background: "#0d1a2e", color: "#e2e8f0", fontSize: 13, marginBottom: "1.2rem", cursor: "pointer"
-            }}
-          >
-            {TIPOS_COBRANCA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
 
           {resultado && (
-            <div style={{
-              padding: "10px 14px", borderRadius: 8, marginBottom: "1rem",
-              background: resultado.ok ? "rgba(74,222,128,0.1)" : "rgba(239,68,68,0.1)",
-              border: `1px solid ${resultado.ok ? "rgba(74,222,128,0.3)" : "rgba(239,68,68,0.3)"}`,
-              color: resultado.ok ? "#4ade80" : "#f87171", fontSize: 13
-            }}>
-              {resultado.mensagem}
+            <div className={`aviso ${resultado.ok ? 'aviso-ok' : 'aviso-erro'} mb-3`}>
+              {resultado.ok ? '✅' : '❌'} {resultado.txt}
             </div>
           )}
 
           <button
-            onClick={pedirConfirmacao}
+            type="button"
+            className="btn btn-primario btn-bloco"
+            onClick={() => setConfirmacao({ data, tipo: tipo || 'automático' })}
             disabled={disparando}
-            style={{
-              width: "100%", padding: "12px 0", borderRadius: 8, border: "none",
-              background: disparando ? "#1e3a5f" : "linear-gradient(135deg, #1d4ed8, #2563eb)",
-              color: disparando ? "#64748b" : "#fff", fontWeight: 700, fontSize: 14,
-              cursor: disparando ? "not-allowed" : "pointer", transition: "all .15s"
-            }}
           >
-            {disparando ? "⏳ Disparando..." : "📤 Disparar Agora"}
+            {disparando ? 'Disparando…' : '📤 Disparar agora'}
           </button>
 
-          <div style={{ marginTop: 10, fontSize: 11, color: "#475569", textAlign: "center" }}>
-            As mensagens são salvas no banco e enviadas pelo WhatsApp.<br />
-            Funcionam mesmo após reiniciar o bot.
+          <div className="dica">
+            As mensagens ficam registradas no banco e são enviadas mesmo se o bot reiniciar.
           </div>
         </Card>
 
-        <Card style={{ padding: "1.5rem" }}>
-          <div style={{ fontWeight: 700, color: "#e2e8f0", marginBottom: "1.2rem", fontSize: 15 }}>
-            📅 Agenda do Mês
-          </div>
-          {loadAgenda ? (
+        <Card className="card-pad">
+          <div className="secao-rotulo">📅 Agenda do mês</div>
+          {carregandoAgenda ? (
             <Spinner />
-          ) : agenda?.agenda ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 320, overflowY: "auto" }}>
+          ) : !agenda?.agenda ? (
+            <div className="vazio">
+              <span className="vazio-emoji">🗓️</span>
+              Nenhuma agenda carregada
+            </div>
+          ) : (
+            <div className="pilha-fina agenda-lista">
               {Object.entries(agenda.agenda)
                 .sort((a, b) => Number(a[0]) - Number(b[0]))
                 .map(([dia, entradas]) => {
-                  const diaNum = Number(dia);
-                  const isHoje = diaNum === hoje;
-                  const passou = diaNum < hoje;
+                  const n = Number(dia);
+                  const eHoje = n === hoje;
                   return (
-                    <div key={dia} style={{
-                      display: "flex", alignItems: "center", gap: 10, padding: "7px 10px",
-                      borderRadius: 7, background: isHoje ? "rgba(56,189,248,0.1)" : "transparent",
-                      border: isHoje ? "1px solid rgba(56,189,248,0.25)" : "1px solid transparent"
-                    }}>
-                      <span style={{
-                        fontSize: 12, fontWeight: 700, width: 24,
-                        color: isHoje ? "#38bdf8" : passou ? "#334155" : "#64748b"
-                      }}>
-                        {diaNum}
-                      </span>
-                      <div style={{ flex: 1 }}>
+                    <div key={dia} className={`agenda-dia ${eHoje ? 'agenda-hoje' : ''} ${n < hoje ? 'agenda-passou' : ''}`}>
+                      <span className="agenda-num">{n}</span>
+                      <div className="agenda-entradas">
                         {entradas.map((e, i) => (
-                          <span key={i} style={{
-                            display: "inline-block", fontSize: 11, padding: "2px 7px",
-                            borderRadius: 4, marginRight: 4, marginBottom: 2,
-                            background: passou ? "rgba(30,58,95,0.4)" : "rgba(30,58,95,0.8)",
-                            color: passou ? "#334155" : "#94a3b8"
-                          }}>
+                          <span key={`${e.data}-${e.tipo}-${i}`} className="badge badge-neutro">
                             Data {e.data} · {e.tipo}
                           </span>
                         ))}
                       </div>
-                      {isHoje && <span style={{ fontSize: 11, color: "#38bdf8", fontWeight: 700 }}>HOJE</span>}
+                      {eHoje && <span className="badge badge-info">HOJE</span>}
                     </div>
                   );
                 })}
             </div>
-          ) : (
-            <div style={{ color: "#475569", fontSize: 13 }}>Nenhuma agenda carregada</div>
           )}
         </Card>
       </div>
 
-      <Card style={{ padding: "1.5rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: "1rem" }}>
-          <div style={{ fontWeight: 700, color: "#e2e8f0", fontSize: 15 }}>
-            📋 Últimas Cobranças Enviadas
-          </div>
+      <Card style={{ marginTop: 20 }}>
+        <div className="card-cab">
+          <span className="card-titulo">📋 Últimas cobranças enviadas</span>
           <input
-            placeholder="Buscar por nome..."
-            value={buscaLog}
-            onChange={e => setBuscaLog(e.target.value)}
-            style={{
-              padding: "6px 12px", borderRadius: 7, border: "1px solid #2d3148",
-              background: "#0f1117", color: "#e2e8f0", fontSize: 13, minWidth: 180
-            }}
+            className="busca-input linha-fim"
+            placeholder="Buscar por nome…"
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
           />
         </div>
         <div className="tabela-scroll">
@@ -226,88 +173,60 @@ export function PageCobranca() {
               <tr><th>Nome</th><th>Vencimento</th><th>Tipo</th><th>Enviado em</th></tr>
             </thead>
             <tbody>
-              {(() => {
-                const filtrados = (logs || []).filter(r =>
-                  !buscaLog || (r.nome || "").toLowerCase().includes(buscaLog.toLowerCase())
-                );
-                if (!filtrados.length) return <tr><td colSpan={4} className="td-empty">Nenhum registro</td></tr>;
-                return filtrados.map((r, i) => (
-                  <React.Fragment key={i}>
-                    <tr
-                      onClick={() => r.mensagem && setLogExpandido(logExpandido === i ? null : i)}
-                      style={{ cursor: r.mensagem ? "pointer" : "default" }}
-                    >
-                      <td className="td-nome">{r.nome}</td>
-                      <td>Dia {r.data_vencimento}</td>
-                      <td>{labelTipo(r.tipo)}</td>
-                      <td className="td-muted">{fmtDate(r.enviado_em)}</td>
+              {filtrados.length === 0 ? (
+                <tr><td colSpan={4} className="td-empty">Nenhum registro</td></tr>
+              ) : filtrados.map((r, i) => (
+                <React.Fragment key={r.id || i}>
+                  <tr
+                    className={r.mensagem ? 'linha-clicavel' : ''}
+                    onClick={() => r.mensagem && setExpandido(expandido === i ? null : i)}
+                  >
+                    <td className="td-nome">{r.nome}</td>
+                    <td>Dia {r.data_vencimento}</td>
+                    <td>{rotuloTipo(r.tipo)}</td>
+                    <td className="td-muted">{fmtDate(r.enviado_em)}</td>
+                  </tr>
+                  {expandido === i && r.mensagem && (
+                    <tr>
+                      <td colSpan={4} className="td-mensagem">{r.mensagem}</td>
                     </tr>
-                    {logExpandido === i && r.mensagem && (
-                      <tr>
-                        <td colSpan={4} style={{ background: "#0d1a2e", padding: "10px 14px", whiteSpace: "pre-wrap", fontSize: 12, color: "#94a3b8" }}>
-                          {r.mensagem}
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                ));
-              })()}
+                  )}
+                </React.Fragment>
+              ))}
             </tbody>
           </table>
         </div>
       </Card>
 
-      {modalConfirm && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-        }}>
-          <div style={{
-            background: '#1e293b', borderRadius: 12, padding: 32, maxWidth: 400,
-            width: '90%', border: '1px solid #dc2626', boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
-          }}>
-            <div style={{ fontSize: 40, textAlign: 'center', marginBottom: 12 }}>⚠️</div>
-            <h3 style={{ color: '#f87171', textAlign: 'center', margin: '0 0 16px', fontSize: 18 }}>
-              Confirmar Disparo Manual
-            </h3>
-            <div style={{ background: '#0f172a', borderRadius: 8, padding: 16, marginBottom: 20 }}>
-              <p style={{ color: '#94a3b8', margin: '0 0 8px', fontSize: 13 }}>
-                📅 <strong style={{ color: '#e2e8f0' }}>Data de vencimento:</strong> Dia {modalConfirm.data}
-              </p>
-              <p style={{ color: '#94a3b8', margin: 0, fontSize: 13 }}>
-                📬 <strong style={{ color: '#e2e8f0' }}>Tipo:</strong> {modalConfirm.tipo}
-              </p>
+      {confirmacao && (
+        <div className="modal-overlay" onClick={() => setConfirmacao(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <div className="modal-title">Confirmar disparo</div>
+
+            <div className="aviso aviso-alerta mb-3">
+              <span className="aviso-emoji">⚠️</span>
+              <span className="aviso-corpo">
+                Isto envia WhatsApp de verdade para os clientes elegíveis.
+                <span className="aviso-detalhe">
+                  Vencimento dia {confirmacao.data} · tipo {confirmacao.tipo}
+                </span>
+              </span>
             </div>
-            <p style={{ color: '#fbbf24', fontSize: 13, textAlign: 'center', marginBottom: 24 }}>
-              ⚠️ Isso irá enviar mensagens WhatsApp para os clientes elegíveis. Tem certeza?
-            </p>
-            {modalConfirm?.jaDisparado && (
-              <div style={{ background: 'rgba(251,191,36,.1)', border: '1px solid rgba(251,191,36,.4)',
-                borderRadius: 8, padding: 12, marginBottom: 16, fontSize: 13, color: '#fbbf24' }}>
-                ⚠️ {modalConfirm.aviso}<br/>
-                <strong>Deseja disparar novamente mesmo assim?</strong>
+
+            {confirmacao.jaDisparado && (
+              <div className="aviso aviso-erro mb-3">
+                <span className="aviso-emoji">🔁</span>
+                <span className="aviso-corpo">
+                  {confirmacao.aviso}
+                  <span className="aviso-detalhe">Disparar de novo manda a mesma mensagem outra vez.</span>
+                </span>
               </div>
             )}
-            <div style={{ display: 'flex', gap: 12 }}>
-              <button
-                onClick={() => setModalConfirm(null)}
-                style={{
-                  flex: 1, padding: '12px 0', borderRadius: 8, border: '1px solid #475569',
-                  background: 'transparent', color: '#94a3b8', fontWeight: 600,
-                  fontSize: 14, cursor: 'pointer'
-                }}
-              >
-                ❌ Cancelar
-              </button>
-              <button
-                onClick={() => confirmarDisparo(modalConfirm?.jaDisparado || false)}
-                style={{
-                  flex: 1, padding: '12px 0', borderRadius: 8, border: 'none',
-                  background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
-                  color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer'
-                }}
-              >
-                📤 Confirmar Disparo
+
+            <div className="modal-footer">
+              <button type="button" className="btn" onClick={() => setConfirmacao(null)}>Cancelar</button>
+              <button type="button" className="btn btn-perigo" onClick={() => disparar(!!confirmacao.jaDisparado)}>
+                📤 {confirmacao.jaDisparado ? 'Disparar mesmo assim' : 'Confirmar disparo'}
               </button>
             </div>
           </div>

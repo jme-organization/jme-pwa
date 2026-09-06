@@ -34,10 +34,19 @@ function headers(extra = {}) {
     return h;
 }
 
-function withTimeout(promise, ms = TIMEOUT_MS) {
+// O timeout precisa do signal DENTRO do fetch. Antes daqui o AbortController
+// era criado e jogado fora: `withTimeout` recebia a promise ja disparada, o
+// abort nao chegava em ninguem e uma rota lenta ficava girando pra sempre.
+// Por isso `fazer` e uma funcao que recebe o signal, e nao uma promise pronta.
+function comTimeout(fazer, ms = TIMEOUT_MS) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), ms);
-    return promise.finally(() => clearTimeout(timer));
+    return fazer(controller.signal)
+        .catch((e) => {
+            if (e?.name === 'AbortError') throw new Error('O servidor demorou demais para responder.');
+            throw e;
+        })
+        .finally(() => clearTimeout(timer));
 }
 
 async function check(resp) {
@@ -59,11 +68,16 @@ async function check(resp) {
     return resp.json();
 }
 
+const comCorpo = (metodo) => (url, body, ms) => comTimeout(
+    (signal) => fetch(API + url, { method: metodo, headers: headers(), body: JSON.stringify(body ?? {}), signal }).then(check),
+    ms,
+);
+
 export const api = {
-    get:    (url, ms)       => withTimeout(fetch(API + url, { headers: headers() }).then(check), ms),
-    post:   (url, body, ms) => withTimeout(fetch(API + url, { method: 'POST',   headers: headers(), body: JSON.stringify(body ?? {}) }).then(check), ms),
-    put:    (url, body, ms) => withTimeout(fetch(API + url, { method: 'PUT',    headers: headers(), body: JSON.stringify(body ?? {}) }).then(check), ms),
-    delete: (url, ms)       => withTimeout(fetch(API + url, { method: 'DELETE', headers: headers() }).then(check), ms),
+    get:    (url, ms)       => comTimeout((signal) => fetch(API + url, { headers: headers(), signal }).then(check), ms),
+    post:   comCorpo('POST'),
+    put:    comCorpo('PUT'),
+    delete: (url, ms)       => comTimeout((signal) => fetch(API + url, { method: 'DELETE', headers: headers(), signal }).then(check), ms),
     API,
 };
 

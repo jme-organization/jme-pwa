@@ -8,8 +8,14 @@ export function NotificationProvider({ children }) {
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     
-    // Carrega alertas só ao montar e quando SSE notifica mudança de clientes/chamados/promessas
-    const { data: alertas } = useSSEData('/api/dashboard/alertas', 'alertas');
+    // O backend nunca emite um evento "alertas": ele emite 'clientes',
+    // 'chamados' e 'cancelamentos'. Assinar só 'alertas', como estava aqui,
+    // fazia o contador do sino e do menu carregarem uma vez e congelarem até
+    // alguém dar F5 — um pagamento dado no painel não sumia da contagem.
+    const { data: alertas } = useSSEData(
+        '/api/dashboard/alertas',
+        ['clientes', 'chamados', 'cancelamentos'],
+    );
 
     useEffect(() => {
         if (alertas) {

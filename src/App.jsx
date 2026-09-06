@@ -1,15 +1,15 @@
-// src/App.jsx
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { useFetch } from './hooks/useFetch';
-import { TopNav } from './components/TopNav';
+// src/App.jsx — shell do painel: sidebar fixa + topbar + rota.
+import React, { useCallback, useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Sidebar } from './components/Sidebar';
+import { Topbar } from './components/Topbar';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
-import { NotificationProvider } from './contexts/NotificationContext';
+import { NotificationProvider, useNotifications } from './contexts/NotificationContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { useStatusBot } from './hooks/useSSEData';
 import { PageLogin } from './pages/login';
 
-// Pages
 import { PageQR } from './pages/qr';
 import { PageDashboard } from './pages/dashboard';
 import { PageClientes } from './pages/clientes';
@@ -22,123 +22,125 @@ import { PageLogs } from './pages/logs';
 import { PageCobranca } from './pages/cobranca';
 import { PageSGP } from './pages/sgp';
 import { PageNovos } from './pages/novos';
-import { PageEstados } from './pages/estados';
 import { PageInadimplentes } from './pages/inadimplentes';
 import { PageAgendamentos } from './pages/agendamentos';
 
 import { api } from './api/client';
 
-const API = import.meta.env.VITE_API_URL || "";
+const CHAVE_MENU = 'jme_menu_recolhido';
+
+// Fecha a gaveta a cada troca de rota — no celular, clicar num item do menu
+// tem que levar pra tela, nao deixar a gaveta por cima dela.
+function FechaGavetaNaRota({ aoTrocar }) {
+  const location = useLocation();
+  useEffect(() => { aoTrocar(); }, [location.pathname, location.search, aoTrocar]);
+  return null;
+}
 
 function AppContent() {
-  const [bases, setBases] = useState([]);
-  // 🔥 REMOVIDO: useFetch("/api/status", 10000) - agora usa SSE no dashboard
-  
-  // 🔥 SSE para o TopNav (botão de ligar/desligar)
-  const [botStatus, setBotStatus] = useState(null);
+  const status = useStatusBot();
+  const { alertasData } = useNotifications();
 
-  useEffect(() => {
-    let es = null;
-    let sseTimer = null;
-    let pollTimer = null;
+  const [recolhida, setRecolhida] = useState(() => {
+    try { return localStorage.getItem(CHAVE_MENU) === '1'; } catch (_) { return false; }
+  });
+  const [gaveta, setGaveta] = useState(false);
 
-    // /api/status não toca Firebase — só lê variáveis em memória, custo zero
-    const fetchStatus = async () => {
-      try {
-        const r = await fetch(API + '/api/status');
-        if (r.ok) setBotStatus(await r.json());
-      } catch(_) {}
-    };
-
-    // SSE para atualizações em tempo real
-    const conectar = () => {
-      if (es) { try { es.close(); } catch(_) {} }
-      es = new EventSource(API + '/api/status-stream');
-      es.onmessage = (event) => {
-        try { setBotStatus(JSON.parse(event.data)); } catch(_) {}
-      };
-      es.onerror = () => {
-        try { es.close(); } catch(_) {}
-        es = null;
-        // Reconecta depois de 30s — polling já mantém status atualizado
-        sseTimer = setTimeout(conectar, 30000);
-      };
-    };
-
-    fetchStatus();                           // imediato
-    pollTimer = setInterval(fetchStatus, 30000); // a cada 30s — suficiente
-    conectar();
-
-    return () => {
-      if (sseTimer) clearTimeout(sseTimer);
-      if (pollTimer) clearInterval(pollTimer);
-      if (es) es.close();
-    };
+  const alternarRecolhida = useCallback(() => {
+    setRecolhida(v => {
+      const novo = !v;
+      try { localStorage.setItem(CHAVE_MENU, novo ? '1' : '0'); } catch (_) { /* modo anonimo */ }
+      return novo;
+    });
   }, []);
 
-  const toggleBot = async () => {
-    try { await api.post('/api/bot/toggle'); } catch(_) {}
-  };
+  const fecharGaveta = useCallback(() => setGaveta(false), []);
+
+  const alternarBot = useCallback(async () => {
+    try { await api.post('/api/bot/toggle'); } catch (_) { /* o SSE traz o estado real */ }
+  }, []);
+
+  const classes = [
+    'shell',
+    recolhida ? 'shell--recolhida' : '',
+    gaveta ? 'shell--gaveta' : '',
+  ].filter(Boolean).join(' ');
 
   return (
     <BrowserRouter>
-      <div className="layout">
-        <TopNav 
-          botAtivo={botStatus?.botAtivo} 
-          onToggle={toggleBot} 
-          bases={bases} 
+      <FechaGavetaNaRota aoTrocar={fecharGaveta} />
+      <div className={classes}>
+        <Sidebar
+          recolhida={recolhida}
+          onAlternarRecolhida={alternarRecolhida}
+          onNavegar={fecharGaveta}
+          alertas={alertasData}
         />
-        <div className="content">
-          <ErrorBoundary>
-            <Routes>
-              <Route path="/" element={<PageDashboard status={botStatus} />} />
-              <Route path="/boas-vindas" element={<PageBoasVindas />} />
-              <Route path="/chamados" element={<PageChamados />} />
-              <Route path="/clientes" element={<PageClientes onBasesCarregadas={setBases} />} />
-              <Route path="/promessas" element={<PagePromessas />} />
-              <Route path="/carne" element={<PageCarne />} />
-              <Route path="/logs" element={<PageLogs />} />
-              <Route path="/cobranca" element={<PageCobranca />} />
-              <Route path="/sgp" element={<PageSGP />} />
-              <Route path="/novos" element={<PageNovos />} />
-              <Route path="/estados" element={<PageEstados />} />
-              <Route path="/cancelamentos" element={<PageCancelamentos />} />
-              <Route path="/inadimplentes" element={<PageInadimplentes />} />
-              <Route path="/agendamentos" element={<PageAgendamentos />} />
-              <Route path="/qr" element={<PageQR status={botStatus} />} />
-            </Routes>
-          </ErrorBoundary>
+
+        {gaveta && <button className="veu" aria-label="Fechar menu" onClick={fecharGaveta} />}
+
+        <div className="shell-corpo">
+          <Topbar
+            botAtivo={status?.botAtivo}
+            onToggleBot={alternarBot}
+            onAbrirMenu={() => setGaveta(true)}
+          />
+
+          <main className="conteudo">
+            <ErrorBoundary>
+              <Routes>
+                <Route path="/" element={<PageDashboard status={status} />} />
+                <Route path="/boas-vindas" element={<PageBoasVindas />} />
+                <Route path="/chamados" element={<PageChamados />} />
+                <Route path="/clientes" element={<PageClientes />} />
+                <Route path="/promessas" element={<PagePromessas />} />
+                <Route path="/carne" element={<PageCarne />} />
+                <Route path="/logs" element={<PageLogs />} />
+                <Route path="/cobranca" element={<PageCobranca />} />
+                <Route path="/sgp" element={<PageSGP />} />
+                <Route path="/novos" element={<PageNovos />} />
+                <Route path="/cancelamentos" element={<PageCancelamentos />} />
+                <Route path="/inadimplentes" element={<PageInadimplentes />} />
+                <Route path="/agendamentos" element={<PageAgendamentos />} />
+                <Route path="/qr" element={<PageQR status={status} />} />
+                {/* /estados era uma tela fixa dizendo que o atendimento
+                    automatico nao existe mais: zero informacao. Quem chegar
+                    pelo link antigo cai no dashboard. */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </ErrorBoundary>
+          </main>
         </div>
       </div>
     </BrowserRouter>
   );
 }
 
-// Porta de entrada: sem token valido, o painel inteiro nao monta. Antes nao
-// havia porta nenhuma — a pagina abria pra qualquer um e a chave de admin ia
-// junto no bundle.
+// Porta de entrada: sem token valido, o painel inteiro nao monta.
 function AppComAuth() {
   const { autenticado, carregando } = useAuth();
 
   if (carregando) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a', color: '#94a3b8' }}>
-        Carregando…
+      <div className="login-tela">
+        <div className="spinner-wrap"><div className="spinner" /></div>
       </div>
     );
   }
 
-  return autenticado ? <AppContent /> : <PageLogin />;
+  // Os alertas so existem depois do login: montar o provider antes disso fazia
+  // a tela de login pedir /api/dashboard/alertas sem token e levar 401.
+  return autenticado
+    ? <NotificationProvider><AppContent /></NotificationProvider>
+    : <PageLogin />;
 }
 
 export default function App() {
   return (
     <ThemeProvider>
-      <NotificationProvider>
-        <AuthProvider>
-          <AppComAuth />
-        </AuthProvider>
-      </NotificationProvider>
+      <AuthProvider>
+        <AppComAuth />
+      </AuthProvider>
     </ThemeProvider>
   );
 }

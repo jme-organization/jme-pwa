@@ -1,79 +1,66 @@
-// src/components/DonutClientes.jsx
+// src/components/DonutClientes.jsx — composicao da base num anel.
 import React from 'react';
 import { PieChart, Pie, Cell, Tooltip } from 'recharts';
+import { useCorTokens } from '../hooks/useCorTokens';
 
 export const DonutClientes = ({ ativos, cancelados, pendentes, promessas, instalacoes }) => {
-  const total = ativos + cancelados;
-  if (!total) return null;
+  const cor = useCorTokens();
+  const total = (ativos || 0) + (cancelados || 0);
+
+  if (!total) {
+    return (
+      <div className="vazio">
+        <span className="vazio-emoji">📭</span>
+        Nenhuma base carregada ainda
+      </div>
+    );
+  }
 
   const pagos = Math.max(0, ativos - pendentes - promessas);
-  const data = [
-    { name: "Pagos", value: pagos, color: "#22c55e" },
-    { name: "Pendentes", value: pendentes, color: "#f59e0b" },
-    { name: "Promessas", value: promessas, color: "#a78bfa" },
-    { name: "Cancelados", value: cancelados, color: "#ef4444" },
-    { name: "Instalações", value: instalacoes || 0, color: "#38bdf8" }
-  ].filter((d) => d.value > 0);
+  const fatias = [
+    { nome: 'Pagos', valor: pagos, cor: cor.green },
+    { nome: 'Pendentes', valor: pendentes, cor: cor.amber },
+    { nome: 'Promessas', valor: promessas, cor: cor.purple },
+    { nome: 'Cancelados', valor: cancelados, cor: cor.red },
+    { nome: 'Instalações', valor: instalacoes || 0, cor: cor.blue },
+  ].filter(f => f.valor > 0);
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-      <PieChart width={130} height={130}>
+    <div className="donut">
+      <PieChart width={132} height={132}>
         <Pie
-          data={data}
-          cx={60}
-          cy={60}
-          innerRadius={38}
-          outerRadius={58}
-          dataKey="value"
+          data={fatias}
+          cx={61}
+          cy={61}
+          innerRadius={39}
+          outerRadius={60}
+          dataKey="valor"
+          nameKey="nome"
           paddingAngle={2}
           strokeWidth={0}
+          isAnimationActive={false}
         >
-          {data.map((d, i) => (
-            <Cell key={i} fill={d.color} />
-          ))}
+          {fatias.map(f => <Cell key={f.nome} fill={f.cor} />)}
         </Pie>
         <Tooltip
           content={({ active, payload }) => {
             if (!active || !payload?.length) return null;
-            const { name, value, fill } = payload[0];
-            return (
-              <div
-                style={{
-                  background: "#0f1117",
-                  border: `1px solid ${fill}55`,
-                  borderRadius: 8,
-                  padding: "6px 12px",
-                  fontSize: 12,
-                  color: fill,
-                  fontWeight: 700,
-                  boxShadow: `0 0 12px ${fill}33`
-                }}
-              >
-                {name}: {value}
-              </div>
-            );
+            const { name, value } = payload[0];
+            return <div className="grafico-dica">{name}: <b>{value}</b></div>;
           }}
         />
       </PieChart>
-      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-        {data.map((d) => (
-          <div key={d.name} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12 }}>
-            <div
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: d.color,
-                flexShrink: 0
-              }}
-            />
-            <span style={{ color: "#94a3b8" }}>{d.name}</span>
-            <span style={{ fontWeight: 700, color: "#e2e8f0", marginLeft: "auto", paddingLeft: 8 }}>
-              {d.value}
-            </span>
-          </div>
+
+      <ul className="donut-legenda">
+        {fatias.map(f => (
+          <li key={f.nome}>
+            {/* cor calculada em tempo de execucao: vem do token do tema */}
+            <span className="donut-ponto" style={{ background: f.cor }} />
+            <span className="donut-nome">{f.nome}</span>
+            <span className="donut-valor">{f.valor}</span>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 };

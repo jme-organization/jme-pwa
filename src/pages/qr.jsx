@@ -1,288 +1,223 @@
-// src/pages/PageQR.jsx — Conexão WhatsApp
+// src/pages/qr.jsx — conexão do WhatsApp.
+//
+// O QR vem do /api/whatsapp/qr como data URL (imagem nao manda header
+// Authorization, e era so por isso que o painel carregava a chave de admin no
+// bundle). O timer visual so reinicia quando o `geradoEm` muda: rebusca que
+// devolve o MESMO QR nao pode fingir que ele foi renovado.
 import React, { useState, useEffect, useRef } from 'react';
+import { Card } from '../components/Card';
 import { api } from '../api/client';
 
-const API = import.meta.env.VITE_API_URL || "";
-
-const QR_INTERVALO = 20000; // ms entre refreshes do QR
-const SCAN_TIMEOUT = 180000; // ms esperando conexão após scan — VPS pode demorar pra sincronizar
+const INTERVALO_QR = 20000;
+const ESPERA_SCAN = 180000; // a VPS pode demorar pra fechar a sessao
 
 export function PageQR({ status }) {
   const [qrUrl, setQrUrl] = useState(null);
-  // O QR agora vem do /api/whatsapp/qr como data URL, e nao mais de uma
-  // <img src="/qr?k=CHAVE">. Imagem nao manda header Authorization, e era so
-  // por isso que o painel precisava carregar a chave de admin no bundle.
-  const carregarQr = useRef(null);
   const [qrErro, setQrErro] = useState(false);
   const [desconectando, setDesconectando] = useState(false);
-  const [msg, setMsg] = useState(null);
   const [resetando, setResetando] = useState(false);
-  const [forceOffline, setForceOffline] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const [forcarOffline, setForcarOffline] = useState(false);
   const [escaneando, setEscaneando] = useState(false);
-  const [countdown, setCountdown] = useState(QR_INTERVALO / 1000);
-  const escaneandoTimer = useRef(null);
-  const countdownTimer = useRef(null);
-  // geradoEm do último QR que de fato mudou. O timer visual só pode resetar
-  // quando este valor muda — antes disso o fallback de polling (que existe
-  // pra cobrir SSE perdido) reiniciava o timer a cada rebusca, mesmo quando
-  // o backend devolvia o MESMO QR de sempre: parecia "atualizado" mas a
-  // imagem na tela continuava velha, o que confundia quem tava escaneando.
-  const ultimoGeradoEmRef = useRef(null);
+  const [contagem, setContagem] = useState(INTERVALO_QR / 1000);
 
-  const online = forceOffline ? false : status?.online;
+  const carregarQr = useRef(null);
+  const timerScan = useRef(null);
+  const timerContagem = useRef(null);
+  const ultimoGeradoEm = useRef(null);
 
-  const iniciarCountdown = () => {
-    if (countdownTimer.current) clearInterval(countdownTimer.current);
-    setCountdown(QR_INTERVALO / 1000);
-    countdownTimer.current = setInterval(() => {
-      setCountdown(prev => (prev <= 1 ? 0 : prev - 1));
+  const online = forcarOffline ? false : status?.online;
+
+  const iniciarContagem = () => {
+    if (timerContagem.current) clearInterval(timerContagem.current);
+    setContagem(INTERVALO_QR / 1000);
+    timerContagem.current = setInterval(() => {
+      setContagem(v => (v <= 1 ? 0 : v - 1));
     }, 1000);
   };
 
   carregarQr.current = async () => {
     try {
       const r = await api.get('/api/whatsapp/qr');
-      if (r?.dataUrl) {
-        const ehQrNovo = r.geradoEm && r.geradoEm !== ultimoGeradoEmRef.current;
-        if (r.geradoEm) ultimoGeradoEmRef.current = r.geradoEm;
-        setQrUrl(r.dataUrl);
-        setQrErro(false);
-        // So reinicia o countdown quando o QR realmente trocou (ou na
-        // primeira vez, sem timer rodando ainda) — nunca por causa de um
-        // fetch que devolveu a mesma imagem de sempre.
-        if (ehQrNovo || !countdownTimer.current) iniciarCountdown();
-      } else {
-        setQrUrl(null);
-      }
+      if (!r?.dataUrl) { setQrUrl(null); return; }
+      const novo = r.geradoEm && r.geradoEm !== ultimoGeradoEm.current;
+      if (r.geradoEm) ultimoGeradoEm.current = r.geradoEm;
+      setQrUrl(r.dataUrl);
+      setQrErro(false);
+      if (novo || !timerContagem.current) iniciarContagem();
     } catch (_) {
       setQrUrl(null);
       setQrErro(true);
     }
   };
 
-  // Reseta forceOffline quando status real vira online
-  useEffect(() => {
-    if (status?.online) setForceOffline(false);
-  }, [status?.online]);
+  useEffect(() => { if (status?.online) setForcarOffline(false); }, [status?.online]);
 
-  // Carrega QR reagindo ao evento real do backend (SSE: status.qrTs muda a
-  // cada QR novo gerado pelo WhatsApp) — evita mostrar QR velho/expirado
-  // que o polling cego em intervalo fixo causava.
+  // O backend avisa por SSE (status.qrTs muda a cada QR novo).
   useEffect(() => {
     if (online || escaneando) {
       setQrUrl(null);
-      if (countdownTimer.current) { clearInterval(countdownTimer.current); countdownTimer.current = null; }
-      setCountdown(QR_INTERVALO / 1000);
+      if (timerContagem.current) { clearInterval(timerContagem.current); timerContagem.current = null; }
+      setContagem(INTERVALO_QR / 1000);
       return;
     }
-
     setQrErro(false);
     carregarQr.current?.();
   }, [online, escaneando, status?.qrTs]);
 
-  // Fallback: se por algum motivo o SSE não avisar (reconexão, evento perdido),
-  // rebusca mesmo assim depois de um tempo maior que o ciclo real do QR. Não
-  // mexe no countdown diretamente — quem decide se reseta é carregarQr, com
-  // base em se o QR devolvido é de fato novo.
+  // Rede de seguranca, caso o evento do SSE se perca.
   useEffect(() => {
-    if (online || escaneando) return;
-    const t = setInterval(() => {
-      setQrErro(false);
-      carregarQr.current?.();
-    }, QR_INTERVALO * 1.5);
+    if (online || escaneando) return undefined;
+    const t = setInterval(() => { setQrErro(false); carregarQr.current?.(); }, INTERVALO_QR * 1.5);
     return () => clearInterval(t);
   }, [online, escaneando]);
 
-  // Limpa o timer ao desmontar a página
   useEffect(() => () => {
-    if (countdownTimer.current) clearInterval(countdownTimer.current);
+    if (timerContagem.current) clearInterval(timerContagem.current);
+    if (timerScan.current) clearTimeout(timerScan.current);
   }, []);
 
-  const marcarEscaneado = () => {
-    setEscaneando(true);
-    if (escaneandoTimer.current) clearTimeout(escaneandoTimer.current);
-    // Se em 60s não conectou, volta pro QR
-    escaneandoTimer.current = setTimeout(() => {
-      setEscaneando(false);
-      setMsg({ tipo: 'erro', texto: 'Conexão não confirmada. Tente escanear novamente.' });
-    }, SCAN_TIMEOUT);
-  };
-
-  // Cancela timer de scan se conectou
   useEffect(() => {
-    if (status?.online && escaneandoTimer.current) {
-      clearTimeout(escaneandoTimer.current);
+    if (status?.online && timerScan.current) {
+      clearTimeout(timerScan.current);
+      timerScan.current = null;
       setEscaneando(false);
     }
   }, [status?.online]);
 
+  const marcarEscaneado = () => {
+    setEscaneando(true);
+    if (timerScan.current) clearTimeout(timerScan.current);
+    timerScan.current = setTimeout(() => {
+      setEscaneando(false);
+      setMsg({ ok: false, txt: 'A conexão não foi confirmada. Tente escanear de novo.' });
+    }, ESPERA_SCAN);
+  };
+
   const desconectar = async () => {
-    if (!confirm('Desconectar o WhatsApp? Você precisará escanear o QR novamente.')) return;
+    if (!confirm('Desconectar o WhatsApp? Vai ser preciso escanear o QR de novo.')) return;
     setDesconectando(true);
     try {
-      await api.post('/api/whatsapp/desconectar');
-      setForceOffline(true);
-      setMsg({ tipo: 'ok', texto: 'Desconectado com sucesso.' });
-    } catch(e) {
-      setMsg({ tipo: 'erro', texto: e.message || 'Erro ao desconectar' });
+      await api.post('/api/whatsapp/desconectar', {}, 30000);
+      setForcarOffline(true);
+      setMsg({ ok: true, txt: 'Desconectado.' });
+    } catch (e) {
+      setMsg({ ok: false, txt: e.message || 'Não consegui desconectar' });
     }
     setDesconectando(false);
   };
 
-  // Esse botão só existe na tela de QR (WhatsApp já desconectado) — não há
-  // sessão pareada ativa pra perder aqui, então "resetar" é sempre seguro:
-  // é o jeito de fato de forçar um QR novo agora, sem depender da rotação
-  // espontânea do backend (~20s, às vezes mais).
+  // So aparece na tela de QR (ja desconectado): nao ha sessao pareada a perder.
   const resetarSessao = async () => {
     if (!confirm('Forçar um QR Code novo agora?')) return;
     setResetando(true);
     try {
-      await api.post('/api/whatsapp/resetar-sessao');
-      setMsg({ tipo: 'ok', texto: '✅ Gerando QR Code novo...' });
-    } catch(e) {
-      setMsg({ tipo: 'erro', texto: e.message || 'Erro ao resetar sessão' });
+      await api.post('/api/whatsapp/resetar-sessao', {}, 30000);
+      setMsg({ ok: true, txt: 'Gerando QR Code novo…' });
+    } catch (e) {
+      setMsg({ ok: false, txt: e.message || 'Não consegui resetar a sessão' });
     }
     setResetando(false);
   };
 
   return (
-    <div className="page" style={{ maxWidth: 540, margin: '0 auto' }}>
-      <h1 className="page-title">📱 Conexão WhatsApp</h1>
+    <div className="page qr-page">
+      <div className="page-topo">
+        <div>
+          <h1 className="page-title">Conexão WhatsApp</h1>
+          <div className="page-sub">É por esta conta que toda cobrança sai.</div>
+        </div>
+      </div>
 
-      {/* Card de status */}
-      <div style={{ background: '#0f1117', borderRadius: 16, padding: 24, marginBottom: 20,
-        border: `1px solid ${online ? 'rgba(34,197,94,.3)' : 'rgba(239,68,68,.3)'}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 48, height: 48, borderRadius: '50%', display: 'flex',
-            alignItems: 'center', justifyContent: 'center', fontSize: 24,
-            background: online ? 'rgba(34,197,94,.12)' : 'rgba(239,68,68,.12)' }}>
-            {online ? '✅' : '❌'}
-          </div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 16, color: online ? '#22c55e' : '#ef4444' }}>
-              {online ? 'WhatsApp Conectado' : 'WhatsApp Desconectado'}
-            </div>
-            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-              {online && status?.iniciadoEm
-                ? `Conectado desde ${new Date(status.iniciadoEm).toLocaleString('pt-BR')}`
-                : 'Escaneie o QR Code abaixo para conectar'}
-            </div>
-          </div>
+      <Card className="card-pad mb-3">
+        <div className="linha">
+          <span className={`pilula-ponto ${online ? 'pilula-ponto-on' : 'pilula-ponto-off'}`} />
+          <span className={`dash-estado ${online ? 'val-ok' : 'val-erro'}`}>
+            {online ? 'Conectado' : 'Desconectado'}
+          </span>
+        </div>
+        <div className="dica">
+          {online && status?.iniciadoEm
+            ? `Conectado desde ${new Date(status.iniciadoEm).toLocaleString('pt-BR')}`
+            : 'Escaneie o QR Code abaixo para conectar.'}
         </div>
 
         {online && (
-          <button onClick={desconectar} disabled={desconectando}
-            style={{ marginTop: 20, width: '100%', padding: '10px 0', borderRadius: 10,
-              border: '1px solid rgba(239,68,68,.4)', background: 'rgba(239,68,68,.08)',
-              color: '#f87171', fontWeight: 700, fontSize: 14,
-              cursor: desconectando ? 'not-allowed' : 'pointer', opacity: desconectando ? .6 : 1 }}>
-            {desconectando ? 'Desconectando...' : '🔌 Desconectar WhatsApp'}
+          <button
+            type="button"
+            className="btn btn-perigo btn-bloco"
+            style={{ marginTop: 16 }}
+            onClick={desconectar}
+            disabled={desconectando}
+          >
+            {desconectando ? 'Desconectando…' : '🔌 Desconectar WhatsApp'}
           </button>
         )}
-      </div>
+      </Card>
 
-      {/* Mensagem de feedback */}
       {msg && (
-        <div style={{ padding: '12px 16px', borderRadius: 10, marginBottom: 16, fontSize: 13,
-          background: msg.tipo === 'ok' ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)',
-          border: `1px solid ${msg.tipo === 'ok' ? 'rgba(34,197,94,.3)' : 'rgba(239,68,68,.3)'}`,
-          color: msg.tipo === 'ok' ? '#4ade80' : '#f87171',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span>{msg.texto}</span>
-          <button onClick={() => setMsg(null)}
-            style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 16 }}>✕</button>
+        <div className={`aviso ${msg.ok ? 'aviso-ok' : 'aviso-erro'} mb-3`}>
+          <span className="aviso-corpo">{msg.txt}</span>
+          <button type="button" className="btn btn-fantasma btn-pequeno linha-fim" onClick={() => setMsg(null)}>✕</button>
         </div>
       )}
 
-      {/* Estado: aguardando conexão após scan */}
       {!online && escaneando && (
-        <div style={{ background: '#0f1117', borderRadius: 16, padding: 40,
-          border: '1px solid rgba(56,189,248,.3)', textAlign: 'center' }}>
-          <div style={{ fontSize: 40, marginBottom: 16 }}>⏳</div>
-          <div style={{ fontWeight: 700, fontSize: 16, color: '#38bdf8', marginBottom: 8 }}>
-            Conectando ao WhatsApp...
+        <Card>
+          <div className="vazio">
+            <span className="vazio-emoji">⏳</span>
+            Conectando ao WhatsApp…
+            <span className="vazio-dica">Não feche esta página enquanto a sessão é estabelecida.</span>
           </div>
-          <div style={{ fontSize: 13, color: '#64748b', marginBottom: 24 }}>
-            Aguarde enquanto a sessão é estabelecida.<br />
-            Não feche esta página.
+          <div className="linha" style={{ justifyContent: 'center', paddingBottom: 20 }}>
+            <button type="button" className="btn btn-perigo btn-pequeno" onClick={() => setEscaneando(false)}>
+              Cancelar e tentar de novo
+            </button>
           </div>
-          <button onClick={() => setEscaneando(false)}
-            style={{ padding: '8px 20px', borderRadius: 8, border: '1px solid rgba(239,68,68,.3)',
-              background: 'rgba(239,68,68,.08)', color: '#f87171', fontSize: 13, cursor: 'pointer' }}>
-            Cancelar — tentar novamente
-          </button>
-        </div>
+        </Card>
       )}
 
-      {/* QR Code */}
       {!online && !escaneando && (
-        <div style={{ background: '#0f1117', borderRadius: 16, padding: 32,
-          border: '1px solid #2d3148', textAlign: 'center' }}>
-          <div style={{ color: '#94a3b8', fontSize: 14, marginBottom: 20 }}>
-            Abra o WhatsApp no seu celular →<br />
-            <strong style={{ color: '#e2e8f0' }}>Dispositivos conectados → Conectar dispositivo</strong>
+        <Card>
+          <div className="qr-quadro">
+            <div className="page-sub" style={{ textAlign: 'center', marginTop: 0 }}>
+              No celular: WhatsApp → Dispositivos conectados → Conectar dispositivo
+            </div>
+
+            {qrErro ? (
+              <div className="qr-vazio">
+                Não consegui carregar o QR
+                <button type="button" className="btn btn-info btn-pequeno" onClick={() => { setQrErro(false); carregarQr.current?.(); }}>
+                  ↻ Tentar de novo
+                </button>
+              </div>
+            ) : qrUrl ? (
+              <>
+                <div className="qr-box">
+                  <img className="qr-img" src={qrUrl} alt="QR Code do WhatsApp" onError={() => setQrErro(true)} />
+                  {contagem <= 5 && contagem > 0 && <span className="qr-contagem">{contagem}s</span>}
+                </div>
+                <div className="dica mt-0">
+                  {contagem > 0 ? `O QR se renova em ${contagem}s` : 'Renovando o QR…'}
+                </div>
+                <button type="button" className="btn btn-ok btn-bloco" onClick={marcarEscaneado}>
+                  ✅ Já escaneei
+                </button>
+              </>
+            ) : (
+              <div className="qr-vazio">Carregando o QR Code…</div>
+            )}
+
+            <div className="page-acoes" style={{ justifyContent: 'center' }}>
+              <button type="button" className="btn btn-pequeno" onClick={() => { setQrErro(false); carregarQr.current?.(); }}>
+                ↻ Recarregar
+              </button>
+              <button type="button" className="btn btn-alerta btn-pequeno" onClick={resetarSessao} disabled={resetando}>
+                {resetando ? 'Gerando…' : '🔄 Forçar QR novo'}
+              </button>
+            </div>
           </div>
-
-          <button onClick={resetarSessao} disabled={resetando}
-            style={{ marginBottom: 16, width: '100%', padding: '10px 0', borderRadius: 10,
-              border: '1px solid rgba(251,191,36,.4)', background: 'rgba(251,191,36,.08)',
-              color: '#fbbf24', fontWeight: 700, fontSize: 14,
-              cursor: resetando ? 'not-allowed' : 'pointer', opacity: resetando ? .6 : 1 }}>
-            {resetando ? 'Gerando QR novo...' : '🔄 Forçar QR Code novo'}
-          </button>
-
-          {qrErro ? (
-            <div style={{ width: 240, height: 240, borderRadius: 12, background: '#1a1d2e',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              margin: '0 auto', gap: 12 }}>
-              <div style={{ color: '#f87171', fontSize: 13 }}>Erro ao carregar QR</div>
-              <button onClick={() => { setQrErro(false); carregarQr.current?.(); }}
-                style={{ padding: '6px 16px', borderRadius: 8, border: 'none',
-                  background: 'rgba(56,189,248,.15)', color: '#38bdf8', fontSize: 13, cursor: 'pointer' }}>
-                ↻ Tentar novamente
-              </button>
-            </div>
-          ) : qrUrl ? (
-            <div>
-              <div style={{ position: 'relative', display: 'inline-block' }}>
-                <img src={qrUrl} alt="QR Code WhatsApp"
-                  style={{ width: 240, height: 240, borderRadius: 12, background: '#fff', padding: 8, display: 'block' }}
-                  onError={() => setQrErro(true)} />
-                {countdown <= 5 && countdown > 0 && (
-                  <div style={{ position: 'absolute', bottom: 8, right: 8,
-                    background: 'rgba(239,68,68,.85)', borderRadius: 8,
-                    padding: '2px 8px', fontSize: 12, fontWeight: 700, color: '#fff' }}>
-                    {countdown}s
-                  </div>
-                )}
-              </div>
-              <div style={{ marginTop: 10, fontSize: 12, color: '#64748b' }}>
-                {countdown > 0 ? `QR atualiza em ${countdown}s` : 'Atualizando QR...'}
-              </div>
-
-              {/* Botão confirmar scan */}
-              <button onClick={marcarEscaneado}
-                style={{ marginTop: 16, width: '100%', padding: '11px 0', borderRadius: 10,
-                  border: '1px solid rgba(34,197,94,.4)', background: 'rgba(34,197,94,.1)',
-                  color: '#22c55e', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
-                ✅ Já escaneei o QR Code
-              </button>
-
-              <button onClick={() => { setQrErro(false); carregarQr.current?.(); }}
-                style={{ marginTop: 10, padding: '7px 20px', borderRadius: 8, border: 'none',
-                  background: 'rgba(56,189,248,.15)', color: '#38bdf8',
-                  fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-                ↻ Recarregar QR
-              </button>
-            </div>
-          ) : (
-            <div style={{ width: 240, height: 240, borderRadius: 12, background: '#1a1d2e',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              margin: '0 auto', color: '#64748b', fontSize: 13 }}>
-              Carregando QR Code...
-            </div>
-          )}
-        </div>
+        </Card>
       )}
     </div>
   );

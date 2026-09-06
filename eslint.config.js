@@ -26,6 +26,8 @@ export default [
                 clearInterval: 'readonly',
                 fetch: 'readonly',
                 EventSource: 'readonly',
+                CustomEvent: 'readonly',
+                FileReader: 'readonly',
                 AbortController: 'readonly',
                 confirm: 'readonly',
                 alert: 'readonly',

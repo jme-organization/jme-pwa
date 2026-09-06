@@ -1,151 +1,140 @@
-import React, { useState, useEffect } from 'react';
+// src/pages/boasvindas.jsx — primeira mensagem para quem acabou de entrar.
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '../components/Card';
 import { Spinner } from '../components/Spinner';
+import { BadgeCliente } from '../components/BadgeCliente';
+import { fmtDataCurta } from '../utils/formatadores';
 import { api } from '../api/client';
+
+const modeloMensagem = (cliente) => (
+  `🤖 *Assistente JMENET*\n\n`
+  + `Olá, *${(cliente.nome || 'Cliente').split(' ')[0]}*! 🎉 Seja bem-vindo(a) à JMENET!\n\n`
+  + `📡 Plano: ${cliente.plano || 'Não informado'}\n`
+  + `📅 Vencimento: todo dia ${cliente.dia_vencimento || '10'}\n\n`
+  + `Qualquer dúvida é só chamar! 😊`
+);
+
+const lerArquivo = (file) => new Promise((resolve, reject) => {
+  const leitor = new FileReader();
+  leitor.onload = () => resolve({ base64: leitor.result.split(',')[1], nome: file.name, tipo: file.type });
+  leitor.onerror = reject;
+  leitor.readAsDataURL(file);
+});
 
 export function PageBoasVindas() {
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [enviando, setEnviando] = useState({});
-  const [modalCliente, setModalCliente] = useState(null);
+  const [erro, setErro] = useState(null);
+  const [enviando, setEnviando] = useState(false);
+
+  // modal de boas-vindas
+  const [alvo, setAlvo] = useState(null);
+  const [mensagem, setMensagem] = useState('');
   const [solicitarCarne, setSolicitarCarne] = useState(false);
   const [obsCarne, setObsCarne] = useState('');
+  const [arquivo, setArquivo] = useState(null);
 
-  // --- Novo envio manual ---
-  const [modalManual, setModalManual] = useState(false);
-  const [telefoneManual, setTelefoneManual] = useState('');
-  const [msgManual, setMsgManual] = useState('');
+  // modal de envio avulso
+  const [avulso, setAvulso] = useState(false);
+  const [telefone, setTelefone] = useState('');
+  const [msgAvulsa, setMsgAvulsa] = useState('');
 
-  // --- Arquivo do carnê ---
-  const [arquivoCarne, setArquivoCarne] = useState(null);
-  useEffect(() => { carregarClientes(); }, []);
-
-  const carregarClientes = async () => {
+  const carregar = useCallback(async () => {
     setLoading(true);
     try {
+      setErro(null);
       const data = await api.get('/api/clientes/recentes?limite=25');
-      setClientes(data);
-    } catch(_) { }
-    setLoading(false);
-  };
-
-  const enviarBoasVindas = async (cliente) => {
-    if (!cliente.telefone) {
-      alert(`${cliente.nome} não tem telefone cadastrado.`);
-      return;
+      setClientes(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setErro(e.message || 'Não consegui carregar os clientes recentes');
     }
-    setModalCliente(cliente);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const abrirEnvio = (cliente) => {
+    setAlvo(cliente);
+    // A mensagem vive em estado. Antes ela era lida do DOM com
+    // document.getElementById no momento do envio.
+    setMensagem(modeloMensagem(cliente));
     setSolicitarCarne(false);
     setObsCarne('');
-    setArquivoCarne(null);
+    setArquivo(null);
   };
-
-  // Lê arquivo como base64
-  const lerArquivo = (file) => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      // Remove "data:...;base64," prefix
-      const base64 = reader.result.split(',')[1];
-      resolve({ base64, nome: file.name, tipo: file.type });
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 
   const confirmarEnvio = async () => {
-    const cliente = modalCliente;
-    if (!cliente) return;
-
-    setEnviando(prev => ({ ...prev, [cliente.id]: true }));
+    if (!alvo) return;
+    setEnviando(true);
     try {
-      const msg = document.getElementById('msgBoasVindas')?.value || '';
-      const body = {
-        cliente_id: cliente.id,
-        mensagem: msg,
+      const corpo = {
+        cliente_id: alvo.id,
+        mensagem,
         solicitar_carne: solicitarCarne,
-        obs_carne: obsCarne
+        obs_carne: obsCarne,
       };
-
-      if (arquivoCarne) {
-        const { base64, nome, tipo } = await lerArquivo(arquivoCarne);
-        body.carne_arquivo_base64 = base64;
-        body.carne_arquivo_nome = nome;
-        body.carne_arquivo_tipo = tipo;
+      if (arquivo) {
+        const { base64, nome, tipo } = await lerArquivo(arquivo);
+        corpo.carne_arquivo_base64 = base64;
+        corpo.carne_arquivo_nome = nome;
+        corpo.carne_arquivo_tipo = tipo;
       }
-
-      const data = await api.post('/api/boas-vindas/enviar', body);
-      alert(`✅ Boas-vindas enviada para ${cliente.nome}!${solicitarCarne ? ' Carnê solicitado!' : ''}${arquivoCarne ? ' Carnê anexado!' : ''}`);
-      setModalCliente(null);
-      setArquivoCarne(null);
-    } catch(e) {
-      alert(`❌ Erro: ${e.message}`);
+      await api.post('/api/boas-vindas/enviar', corpo, 60000);
+      alert(`✅ Boas-vindas enviada para ${alvo.nome}.`);
+      setAlvo(null);
+    } catch (e) {
+      alert(`❌ Não consegui enviar: ${e.message}`);
     }
-    setEnviando(prev => ({ ...prev, [cliente.id]: false }));
+    setEnviando(false);
   };
 
-  // --- Envio manual ---
-  const enviarManual = async () => {
-    if (!telefoneManual.trim() || !msgManual.trim()) {
+  const enviarAvulso = async () => {
+    if (!telefone.trim() || !msgAvulsa.trim()) {
       alert('Preencha o telefone e a mensagem.');
       return;
     }
+    setEnviando(true);
     try {
-      await api.post('/api/boas-vindas/manual', { telefone: telefoneManual, mensagem: msgManual });
-      alert('✅ Mensagem enviada!');
-      setModalManual(false);
-      setTelefoneManual('');
-      setMsgManual('');
-    } catch(e) {
-      alert(`❌ Erro: ${e.message}`);
+      await api.post('/api/boas-vindas/manual', { telefone, mensagem: msgAvulsa }, 30000);
+      alert('✅ Mensagem enviada.');
+      setAvulso(false);
+      setTelefone('');
+      setMsgAvulsa('');
+    } catch (e) {
+      alert(`❌ Não consegui enviar: ${e.message}`);
     }
-  };
-
-  const corStatus = (s) => {
-    switch(s) {
-      case 'pago': return '#22c55e';
-      case 'promessa': return '#a78bfa';
-      case 'cancelado': return '#ef4444';
-      default: return '#f59e0b';
-    }
+    setEnviando(false);
   };
 
   return (
     <div className="page">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div className="page-topo">
         <div>
-          <h1 className="page-title" style={{ marginBottom: 4 }}>Boas-Vindas</h1>
-          <p style={{ color: '#94a3b8', fontSize: 13 }}>
-            Últimos 25 clientes cadastrados. Envie boas-vindas pelo WhatsApp e opcionalmente anexe o carnê.
-          </p>
+          <h1 className="page-title">Boas-vindas</h1>
+          <div className="page-sub">Os 25 cadastros mais recentes. Dá para anexar o carnê no mesmo envio.</div>
         </div>
-        <button
-          onClick={() => setModalManual(true)}
-          style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #38bdf8',
-            background: 'rgba(56,189,248,.1)', color: '#38bdf8', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-          💬 Enviar Manual
-        </button>
+        <div className="page-acoes">
+          <button type="button" className="btn btn-info" onClick={() => setAvulso(true)}>
+            💬 Enviar para um número
+          </button>
+        </div>
       </div>
 
-      {loading ? (
-        <div className="spinner-wrap"><div className="spinner"></div></div>
-      ) : clientes.length === 0 ? (
-        <Card><div className="td-empty" style={{ padding: '3rem', textAlign: 'center' }}>
-          Nenhum cliente recente cadastrado
-        </div></Card>
+      {erro && <div className="aviso aviso-erro mb-3">{erro}</div>}
+
+      {loading ? <Spinner /> : clientes.length === 0 ? (
+        <Card>
+          <div className="vazio">
+            <span className="vazio-emoji">👋</span>
+            Nenhum cliente cadastrado recentemente
+          </div>
+        </Card>
       ) : (
-        <Card style={{ padding: 0 }}>
+        <Card>
           <div className="tabela-scroll">
             <table className="tabela">
               <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Telefone</th>
-                  <th>Plano</th>
-                  <th>Vencimento</th>
-                  <th>Status</th>
-                  <th>Cadastrado em</th>
-                  <th>Ação</th>
-                </tr>
+                <tr><th>Nome</th><th>Telefone</th><th>Plano</th><th>Venc.</th><th>Status</th><th>Cadastrado</th><th /></tr>
               </thead>
               <tbody>
                 {clientes.map(c => (
@@ -153,25 +142,18 @@ export function PageBoasVindas() {
                     <td className="td-nome">{c.nome}</td>
                     <td className="td-mono">{c.telefone || '—'}</td>
                     <td>{c.plano || '—'}</td>
-                    <td style={{ textAlign: 'center' }}>Dia {c.dia_vencimento || 'N/A'}</td>
-                    <td>
-                      <span className="badge" style={{
-                        background: corStatus(c.status) + '22',
-                        color: corStatus(c.status),
-                        border: `1px solid ${corStatus(c.status)}44`
-                      }}>
-                        {c.status || 'pendente'}
-                      </span>
-                    </td>
-                    <td className="td-muted">{c.criado_em ? new Date(c.criado_em).toLocaleDateString('pt-BR') : '—'}</td>
-                    <td>
+                    <td className="td-centro">{c.dia_vencimento ? `Dia ${c.dia_vencimento}` : '—'}</td>
+                    <td><BadgeCliente status={c.status} /></td>
+                    <td className="td-muted">{fmtDataCurta(c.criado_em)}</td>
+                    <td className="td-fim">
                       <button
-                        className="btn-save"
-                        style={{ fontSize: 12, padding: '6px 12px', whiteSpace: 'nowrap' }}
-                        disabled={enviando[c.id] || !c.telefone}
-                        onClick={() => enviarBoasVindas(c)}
+                        type="button"
+                        className="btn btn-primario btn-pequeno"
+                        disabled={!c.telefone}
+                        title={c.telefone ? 'Enviar boas-vindas' : 'Cliente sem telefone cadastrado'}
+                        onClick={() => abrirEnvio(c)}
                       >
-                        {enviando[c.id] ? 'Enviando...' : '👋 Enviar'}
+                        👋 Enviar
                       </button>
                     </td>
                   </tr>
@@ -182,58 +164,51 @@ export function PageBoasVindas() {
         </Card>
       )}
 
-      {/* Modal de confirmação de boas-vindas */}
-      {modalCliente && (
-        <div className="modal-overlay" onClick={() => { setModalCliente(null); setArquivoCarne(null); }}>
-          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
-            <div className="modal-title">Boas-Vindas — {modalCliente.nome}</div>
+      {alvo && (
+        <div className="modal-overlay" onClick={() => setAlvo(null)}>
+          <div className="modal-box modal-grande" onClick={e => e.stopPropagation()}>
+            <div className="modal-title">Boas-vindas — {alvo.nome}</div>
 
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: '#64748b', display: 'block', marginBottom: 4 }}>
-                Mensagem de boas-vindas (editável):
-              </label>
+            <div className="campo">
+              <label className="rotulo" htmlFor="msg-bv">Mensagem</label>
               <textarea
-                id="msgBoasVindas"
-                style={{ width: '100%', minHeight: 100, padding: 8, borderRadius: 8,
-                  border: '1px solid #2d3148', background: '#0f1117', color: '#e2e8f0',
-                  fontSize: 13, resize: 'vertical', fontFamily: 'inherit' }}
-                defaultValue={`🤖 *Assistente JMENET*\n\nOlá, *${(modalCliente.nome || 'Cliente').split(' ')[0]}*! 🎉 Seja bem-vindo(a) à JMENET!\n\n📡 Plano: ${modalCliente.plano || 'Não informado'}\n📅 Vencimento: Todo dia ${modalCliente.dia_vencimento || '10'}\n\nQualquer dúvida é só chamar! 😊`}
+                id="msg-bv"
+                className="entrada"
+                rows={7}
+                value={mensagem}
+                onChange={e => setMensagem(e.target.value)}
               />
             </div>
 
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: '#64748b', display: 'block', marginBottom: 4 }}>
-                📄 Anexar carnê (PDF ou imagem):
-              </label>
+            <div className="campo">
+              <label className="rotulo" htmlFor="arq-bv">Anexar carnê (PDF ou imagem)</label>
               <input
+                id="arq-bv"
+                className="entrada"
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png"
-                onChange={e => setArquivoCarne(e.target.files[0] || null)}
-                style={{ width: '100%', fontSize: 12, color: '#94a3b8' }}
+                onChange={e => setArquivo(e.target.files[0] || null)}
               />
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+            <div className="campo">
+              <label className="marcavel">
                 <input
                   type="checkbox"
                   checked={solicitarCarne}
                   onChange={e => setSolicitarCarne(e.target.checked)}
-                  style={{ accentColor: '#38bdf8' }}
                 />
-                📋 Solicitar carnê físico
+                📋 Solicitar carnê físico junto
               </label>
             </div>
 
             {solicitarCarne && (
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 12, color: '#64748b', display: 'block', marginBottom: 4 }}>
-                  Observação (opcional):
-                </label>
+              <div className="campo">
+                <label className="rotulo" htmlFor="obs-carne">Observação do carnê</label>
                 <input
-                  className="busca-input"
-                  style={{ maxWidth: '100%' }}
-                  placeholder="Ex: entregar junto com roteiro"
+                  id="obs-carne"
+                  className="entrada"
+                  placeholder="Ex: entregar junto com o roteador"
                   value={obsCarne}
                   onChange={e => setObsCarne(e.target.value)}
                 />
@@ -241,51 +216,47 @@ export function PageBoasVindas() {
             )}
 
             <div className="modal-footer">
-              <button className="btn-cancel" onClick={() => { setModalCliente(null); setArquivoCarne(null); }}>Cancelar</button>
-              <button className="btn-save" onClick={confirmarEnvio}>
-                ✅ Confirmar Envio
+              <button type="button" className="btn" onClick={() => setAlvo(null)}>Cancelar</button>
+              <button type="button" className="btn btn-primario" onClick={confirmarEnvio} disabled={enviando}>
+                {enviando ? 'Enviando…' : '✅ Enviar agora'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal de envio manual */}
-      {modalManual && (
-        <div className="modal-overlay" onClick={() => setModalManual(false)}>
-          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
-            <div className="modal-title">💬 Enviar Mensagem Manual</div>
+      {avulso && (
+        <div className="modal-overlay" onClick={() => setAvulso(false)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <div className="modal-title">Mensagem avulsa</div>
 
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: '#64748b', display: 'block', marginBottom: 4 }}>
-                Telefone (com DDD):
-              </label>
+            <div className="campo">
+              <label className="rotulo" htmlFor="tel-avulso">Telefone com DDD</label>
               <input
-                className="busca-input"
-                style={{ maxWidth: '100%' }}
+                id="tel-avulso"
+                className="entrada"
                 placeholder="5581999999999"
-                value={telefoneManual}
-                onChange={e => setTelefoneManual(e.target.value)}
+                value={telefone}
+                onChange={e => setTelefone(e.target.value)}
               />
             </div>
 
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: '#64748b', display: 'block', marginBottom: 4 }}>
-                Mensagem:
-              </label>
+            <div className="campo">
+              <label className="rotulo" htmlFor="msg-avulsa">Mensagem</label>
               <textarea
-                style={{ width: '100%', minHeight: 120, padding: 8, borderRadius: 8,
-                  border: '1px solid #2d3148', background: '#0f1117', color: '#e2e8f0',
-                  fontSize: 13, resize: 'vertical', fontFamily: 'inherit' }}
-                placeholder="Digite sua mensagem aqui..."
-                value={msgManual}
-                onChange={e => setMsgManual(e.target.value)}
+                id="msg-avulsa"
+                className="entrada"
+                rows={6}
+                value={msgAvulsa}
+                onChange={e => setMsgAvulsa(e.target.value)}
               />
             </div>
 
             <div className="modal-footer">
-              <button className="btn-cancel" onClick={() => setModalManual(false)}>Cancelar</button>
-              <button className="btn-save" onClick={enviarManual}>Enviar</button>
+              <button type="button" className="btn" onClick={() => setAvulso(false)}>Cancelar</button>
+              <button type="button" className="btn btn-primario" onClick={enviarAvulso} disabled={enviando}>
+                {enviando ? 'Enviando…' : 'Enviar'}
+              </button>
             </div>
           </div>
         </div>

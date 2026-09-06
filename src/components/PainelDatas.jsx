@@ -1,6 +1,30 @@
-// src/components/PainelDatas.jsx
-import React, { useState, useEffect } from 'react';
+// src/components/PainelDatas.jsx — as faturas do cliente, mes a mes.
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client';
+import { fmtMoeda } from '../utils/formatadores';
+
+const FORMAS = ['pix', 'boleto', 'dinheiro', 'cartão', 'carnê', 'efi'];
+
+const ESTADO = {
+  pago:         { icone: '✅', label: 'Pago',        classe: 'badge-pago' },
+  isento:       { icone: '🆓', label: 'Isento',      classe: 'badge-isento' },
+  pendente:     { icone: '⏳', label: 'Pendente',    classe: 'badge-pendente' },
+  inadimplente: { icone: '❌', label: 'Inadimplente', classe: 'badge-inadimplente' },
+  promessa:     { icone: '🤝', label: 'Promessa',    classe: 'badge-promessa' },
+  aberto:       { icone: '📅', label: 'Em aberto',   classe: 'badge-neutro' },
+};
+
+// Valor do plano: o texto do plano ja traz o preco ("Fibra 200MB — R$60").
+const valorDoPlano = (plano) => {
+  if (!plano) return null;
+  const m = plano.match(/R\$\s*(\d+)/i);
+  if (m) return parseInt(m[1], 10);
+  const p = plano.toLowerCase();
+  if (p.includes('iptv')) return 70;
+  if (p.includes('200') || p.includes('fibra')) return 60;
+  if (p.includes('50') || p.includes('cabo')) return 50;
+  return null;
+};
 
 export const PainelDatas = ({ clienteId, diaVencimento, plano, onStatusChange }) => {
   const [historico, setHistorico] = useState(null);
@@ -8,221 +32,157 @@ export const PainelDatas = ({ clienteId, diaVencimento, plano, onStatusChange })
   const [modalForma, setModalForma] = useState(null);
   const [erro, setErro] = useState(null);
 
-  const carregarHistorico = async () => {
+  const carregar = useCallback(async () => {
     try {
       setErro(null);
-      const data = await api.get(`/api/clientes/${clienteId}/historico`);
-      setHistorico(data);
-    } catch (error) {
-      console.error('Erro ao carregar histórico:', error);
-      setErro('Não foi possível carregar o histórico');
+      setHistorico(await api.get(`/api/clientes/${clienteId}/historico`));
+    } catch (e) {
+      setErro(e.message || 'Não consegui carregar o histórico');
       setHistorico({ historico: [] });
     }
-  };
-
-  useEffect(() => {
-    carregarHistorico();
   }, [clienteId]);
 
-  const FORMAS = ["pix", "boleto", "dinheiro", "cartão", "carnê", "efi"];
+  useEffect(() => { carregar(); }, [carregar]);
 
-  const extrairValorPlano = (plano) => {
-    if (!plano) return null;
-    const p = plano.toLowerCase();
-    if (p.includes('iptv') || p.includes('70')) return 70;
-    if (p.includes('200') || p.includes('fibra')) return 60;
-    if (p.includes('50') || p.includes('cabo')) return 50;
-    const m = p.match(/r\$\s*(\d+)/);
-    if (m) return parseInt(m[1]);
-    return null;
-  };
+  const hoje = new Date();
+  const refHoje = `${String(hoje.getMonth() + 1).padStart(2, '0')}/${hoje.getFullYear()}`;
 
-  // Gera 3 meses anteriores + mês atual + 11 próximos
-  const gerarRefs = () => {
-    const list = [];
-    const hoje = new Date();
-    for (let i = -3; i < 12; i++) {
-      const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
-      const mm = String(d.getMonth() + 1).padStart(2, "0");
-      const aaaa = d.getFullYear();
-      const ultimo = new Date(aaaa, d.getMonth() + 1, 0).getDate();
-      const diaReal = Math.min(diaVencimento || 10, ultimo);
-      list.push({
-        ref: `${mm}/${aaaa}`,
-        label: `${String(diaReal).padStart(2, "0")}/${mm}/${aaaa}`,
-        isMesAtual: i === 0,
-        isPast: i < 0,
-      });
-    }
-    return list;
-  };
+  // 3 meses atras + o atual + 11 a frente.
+  const refs = [];
+  for (let i = -3; i < 12; i++) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const ultimoDia = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    refs.push({
+      ref: `${mm}/${d.getFullYear()}`,
+      dia: String(Math.min(diaVencimento || 10, ultimoDia)).padStart(2, '0'),
+      mm,
+      passado: i < 0,
+      atual: i === 0,
+    });
+  }
 
   const confirmarBaixa = async (ref, forma) => {
     setModalForma(null);
     setBaixando(ref);
     setErro(null);
     try {
-      await api.post(`/api/clientes/${clienteId}/historico/${encodeURIComponent(ref)}/pagar`, { forma_pagamento: forma || null });
-      await carregarHistorico();
-      if (onStatusChange) onStatusChange("pago");
-    } catch (error) {
-      console.error('Erro:', error);
-      setErro('Erro ao dar baixa');
-    } finally {
-      setBaixando(null);
+      await api.post(`/api/clientes/${clienteId}/historico/${encodeURIComponent(ref)}/pagar`, {
+        forma_pagamento: forma || null,
+      });
+      await carregar();
+      onStatusChange?.('pago');
+    } catch (e) {
+      setErro(`Não consegui dar baixa: ${e.message}`);
     }
+    setBaixando(null);
   };
 
   const reverter = async (ref) => {
-    if (!confirm(`Reverter baixa de ${ref}?`)) return;
-    setBaixando(ref + "_rev");
+    if (!confirm(`Reverter a baixa de ${ref}?`)) return;
+    setBaixando(`${ref}_rev`);
     setErro(null);
     try {
       await api.post(`/api/clientes/${clienteId}/historico/${encodeURIComponent(ref)}/reverter`, {});
-      await carregarHistorico();
-      if (onStatusChange) onStatusChange("pendente");
-    } catch (error) {
-      console.error('Erro:', error);
-      setErro('Erro ao reverter');
-    } finally {
-      setBaixando(null);
+      await carregar();
+      onStatusChange?.('pendente');
+    } catch (e) {
+      setErro(`Não consegui reverter: ${e.message}`);
     }
+    setBaixando(null);
   };
 
-  const valorPlano = extrairValorPlano(plano);
-  const refs = gerarRefs();
-  const hoje = new Date();
-  const refHoje = `${String(hoje.getMonth() + 1).padStart(2, "0")}/${hoje.getFullYear()}`;
+  if (!historico) return <div className="spinner-wrap"><div className="spinner" /></div>;
 
-  const histMap = {};
-  if (historico?.historico) {
-    historico.historico.forEach(h => { histMap[h.referencia] = h; });
-  }
+  const porRef = {};
+  (historico.historico || []).forEach(h => { porRef[h.referencia] = h; });
 
-  const ST = {
-    pago:        { color: "#4ade80", bg: "rgba(34,197,94,.15)",   border: "rgba(34,197,94,.4)",    icon: "✅", label: "Pago" },
-    isento:      { color: "#22d3ee", bg: "rgba(34,211,238,.1)",   border: "rgba(34,211,238,.3)",   icon: "🆓", label: "Isento (instalação)" },
-    pendente:    { color: "#fbbf24", bg: "rgba(245,158,11,.1)",   border: "rgba(245,158,11,.35)",  icon: "⏳", label: "Pendente" },
-    inadimplente:{ color: "#f87171", bg: "rgba(239,68,68,.12)",   border: "rgba(239,68,68,.4)",    icon: "❌", label: "Inadimplente" },
-    promessa:    { color: "#a78bfa", bg: "rgba(167,139,250,.12)", border: "rgba(167,139,250,.4)",  icon: "🤝", label: "Promessa" },
-    aberto:      { color: "#475569", bg: "rgba(30,58,95,.35)",    border: "rgba(56,189,248,.12)",  icon: "📅", label: "Em aberto" },
-  };
+  const valor = valorDoPlano(plano);
+  const atual = porRef[refHoje];
+  const estAtual = ESTADO[atual?.status || 'pendente'] || ESTADO.pendente;
+  const infoAtual = refs.find(r => r.atual);
 
-  if (!historico) {
-    return <div style={{ textAlign: "center", padding: "2rem", color: "#475569" }}>Carregando histórico...</div>;
-  }
-
-  if (erro) {
-    return <div style={{ textAlign: "center", padding: "2rem", color: "#f87171" }}>⚠️ {erro}</div>;
-  }
-
-  const atual = histMap[refHoje];
-  const stAtual = ST[atual?.status || "pendente"];
-
-  // Meses anteriores (com ou sem registro)
-  const mesesAnteriores = refs.filter(r => r.isPast);
-  // Próximos meses (excluindo atual)
-  const proximosMeses = refs.filter(r => !r.isPast && !r.isMesAtual);
+  const pagos = (historico.historico || []).filter(h => h.status === 'pago' || h.status === 'isento');
 
   return (
     <div>
-      {/* Modal forma de pagamento */}
+      {erro && <div className="aviso aviso-erro mb-2">{erro}</div>}
+
       {modalForma && (
-        <div
-          style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.6)" }}
-          onClick={() => setModalForma(null)}
-        >
-          <div onClick={e => e.stopPropagation()} style={{ background: "#0f172a", border: "1px solid #1e3a5f", borderRadius: 14, padding: "20px 22px", width: 300 }}>
-            <div style={{ fontWeight: 700, color: "#e2e8f0", fontSize: 15, marginBottom: 4 }}>Forma de pagamento</div>
-            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>Fatura: {modalForma}</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+        <div className="modal-overlay" onClick={() => setModalForma(null)}>
+          <div className="modal-box modal-estreito" onClick={e => e.stopPropagation()}>
+            <div className="modal-title">Forma de pagamento</div>
+            <div className="dica" style={{ marginTop: 0, marginBottom: 12 }}>Fatura {modalForma}</div>
+            <div className="formas">
               {FORMAS.map(f => (
-                <button key={f} onClick={() => confirmarBaixa(modalForma, f)}
-                  style={{ padding: "9px 4px", borderRadius: 8, border: "1px solid rgba(56,189,248,.25)", background: "rgba(56,189,248,.07)", color: "#38bdf8", fontWeight: 600, fontSize: 12, cursor: "pointer", textTransform: "capitalize" }}>
+                <button key={f} type="button" className="btn btn-info" onClick={() => confirmarBaixa(modalForma, f)}>
                   {f}
                 </button>
               ))}
             </div>
-            <button onClick={() => confirmarBaixa(modalForma, null)}
-              style={{ width: "100%", padding: "8px 0", borderRadius: 8, border: "1px solid #1e3a5f", background: "transparent", color: "#475569", fontSize: 12, cursor: "pointer" }}>
-              Sem forma de pagamento
+            <button type="button" className="btn btn-bloco mt-2" onClick={() => confirmarBaixa(modalForma, null)}>
+              Sem forma registrada
             </button>
-            <button onClick={() => setModalForma(null)}
-              style={{ width: "100%", marginTop: 6, padding: "6px 0", borderRadius: 8, border: "none", background: "transparent", color: "#334155", fontSize: 11, cursor: "pointer" }}>
+            <button type="button" className="btn btn-fantasma btn-bloco mt-1" onClick={() => setModalForma(null)}>
               Cancelar
             </button>
           </div>
         </div>
       )}
 
-      {/* Fatura atual */}
-      <div style={{ borderRadius: 12, border: `1.5px solid ${stAtual.border}`, background: stAtual.bg, padding: "14px 16px", marginBottom: 18 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>Fatura atual</div>
-            <div style={{ fontWeight: 700, fontSize: 18, color: stAtual.color }}>
-              {String(diaVencimento || 10).padStart(2, "0")}/{String(hoje.getMonth() + 1).padStart(2, "0")}/{hoje.getFullYear()}
+      {/* Fatura do mês */}
+      <div className={`fatura-atual ${estAtual.classe}`}>
+        <div>
+          <div className="rotulo">Fatura atual</div>
+          <div className="fatura-data">{infoAtual?.dia}/{refHoje}</div>
+          {atual?.pago_em && atual.status !== 'isento' && (
+            <div className="dica">
+              Pago em {new Date(atual.pago_em).toLocaleDateString('pt-BR')}
+              {atual.forma_pagamento ? ` · ${atual.forma_pagamento.toUpperCase()}` : ''}
             </div>
-            {atual?.pago_em && atual.status !== "isento" && (
-              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
-                Pago em {new Date(atual.pago_em).toLocaleDateString("pt-BR")}
-                {atual.forma_pagamento ? ` · ${atual.forma_pagamento.toUpperCase()}` : ""}
-              </div>
-            )}
-            {valorPlano && <div style={{ fontSize: 13, fontWeight: 700, color: "#4ade80", marginTop: 6 }}>R$ {valorPlano},00</div>}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-            <span style={{ fontWeight: 700, fontSize: 12, color: stAtual.color }}>{stAtual.icon} {stAtual.label}</span>
-            {atual?.status === "isento" ? (
-              <span style={{ fontSize: 11, color: "#22d3ee", fontStyle: "italic" }}>Mês de instalação</span>
-            ) : atual?.status === "pago" ? (
-              <button disabled={baixando === refHoje + "_rev"} onClick={() => reverter(refHoje)}
-                style={{ padding: "4px 12px", borderRadius: 6, border: "1px solid rgba(239,68,68,.35)", background: "transparent", color: "#f87171", fontSize: 11, cursor: "pointer" }}>
-                ↩ Reverter
-              </button>
-            ) : (
-              <button disabled={!!baixando} onClick={() => setModalForma(refHoje)}
-                style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "rgba(34,197,94,.2)", color: "#4ade80", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                {baixando === refHoje ? "..." : "✅ Dar baixa"}
-              </button>
-            )}
-          </div>
+          )}
+          {valor && <div className="fatura-valor">{fmtMoeda(valor)}</div>}
+        </div>
+
+        <div className="fatura-acao">
+          <span className="badge">{estAtual.icone} {estAtual.label}</span>
+          {atual?.status === 'isento' ? (
+            <span className="dica">Mês de instalação</span>
+          ) : atual?.status === 'pago' ? (
+            <button type="button" className="btn btn-perigo btn-pequeno" onClick={() => reverter(refHoje)} disabled={!!baixando}>
+              ↩ Reverter
+            </button>
+          ) : (
+            <button type="button" className="btn btn-ok" onClick={() => setModalForma(refHoje)} disabled={!!baixando}>
+              {baixando === refHoje ? '…' : '✅ Dar baixa'}
+            </button>
+          )}
         </div>
       </div>
 
       {/* Meses anteriores */}
-      <div style={{ fontSize: 11, color: "#475569", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-        Meses anteriores
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 18 }}>
-        {mesesAnteriores.map(({ ref, label }) => {
-          const h = histMap[ref];
-          const status = h?.status || "aberto";
-          const st = ST[status] || ST.aberto;
-          const pago = status === "pago" || status === "isento";
+      <div className="rotulo mt-4">Meses anteriores</div>
+      <div className="pilha-fina">
+        {refs.filter(r => r.passado).map(({ ref }) => {
+          const h = porRef[ref];
+          const st = ESTADO[h?.status || 'aberto'] || ESTADO.aberto;
+          const quitado = h?.status === 'pago' || h?.status === 'isento';
           return (
-            <div key={ref} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 9, background: st.bg, border: `1px solid ${st.border}` }}>
-              <span style={{ color: st.color, fontWeight: 800, fontSize: 12, minWidth: 54 }}>{ref}</span>
-              <div style={{ flex: 1 }}>
-                {h?.pago_em && (
-                  <div style={{ fontSize: 11, color: "#94a3b8" }}>
-                    Pago em {new Date(h.pago_em).toLocaleDateString("pt-BR")}
-                    {h.forma_pagamento ? ` · ${h.forma_pagamento.toUpperCase()}` : ""}
-                  </div>
-                )}
-                {!h && <div style={{ fontSize: 11, color: "#475569" }}>Sem registro</div>}
-              </div>
-              <span style={{ fontSize: 11, color: st.color, fontWeight: 700 }}>{st.icon} {st.label}</span>
-              {pago && status !== "isento" && (
-                <button disabled={!!baixando} onClick={() => reverter(ref)}
-                  style={{ padding: "3px 9px", borderRadius: 5, border: "1px solid rgba(239,68,68,.2)", background: "transparent", color: "#f87171", fontSize: 10, cursor: "pointer", flexShrink: 0 }}>
-                  ↩
-                </button>
-              )}
-              {!pago && (
-                <button disabled={!!baixando} onClick={() => setModalForma(ref)}
-                  style={{ padding: "4px 10px", borderRadius: 6, border: "none", background: "rgba(34,197,94,.15)", color: "#4ade80", fontSize: 11, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
-                  {baixando === ref ? "..." : "✅ Dar baixa"}
+            <div key={ref} className="fatura-linha">
+              <span className="fatura-ref">{ref}</span>
+              <span className="fatura-meio">
+                {h?.pago_em
+                  ? `Pago em ${new Date(h.pago_em).toLocaleDateString('pt-BR')}${h.forma_pagamento ? ` · ${h.forma_pagamento.toUpperCase()}` : ''}`
+                  : !h ? 'Sem registro' : ''}
+              </span>
+              <span className={`badge ${st.classe}`}>{st.icone} {st.label}</span>
+              {quitado ? (
+                h.status !== 'isento' && (
+                  <button type="button" className="btn btn-perigo btn-pequeno" onClick={() => reverter(ref)} disabled={!!baixando}>↩</button>
+                )
+              ) : (
+                <button type="button" className="btn btn-ok btn-pequeno" onClick={() => setModalForma(ref)} disabled={!!baixando}>
+                  {baixando === ref ? '…' : '✅ Baixa'}
                 </button>
               )}
             </div>
@@ -230,64 +190,49 @@ export const PainelDatas = ({ clienteId, diaVencimento, plano, onStatusChange })
         })}
       </div>
 
-      {/* Próximas faturas */}
-      <div style={{ fontSize: 11, color: "#475569", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-        Próximas faturas
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 7, marginBottom: 18 }}>
-        {proximosMeses.slice(0, 9).map(({ ref, label }) => {
-          const h = histMap[ref];
-          const st = ST[h?.status || "aberto"];
-          const bloqueado = h?.status === "pago" || h?.status === "isento";
+      {/* Próximas faturas — adiantar pagamento é caso real (8 clientes em 09/2026) */}
+      <div className="rotulo mt-4">Próximas faturas</div>
+      <div className="futuras">
+        {refs.filter(r => !r.passado && !r.atual).slice(0, 9).map(({ ref, dia, mm }) => {
+          const h = porRef[ref];
+          const st = ESTADO[h?.status || 'aberto'] || ESTADO.aberto;
+          const travada = h?.status === 'pago' || h?.status === 'isento';
           return (
-            <div key={ref} onClick={() => { if (!bloqueado && !baixando) setModalForma(ref); }}
-              style={{ padding: "8px 10px", borderRadius: 8, textAlign: "center", cursor: !bloqueado ? "pointer" : "default", background: st.bg, border: `1px solid ${st.border}` }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: st.color }}>{label.slice(0, 5)}</div>
-              <div style={{ fontSize: 10, color: st.color, marginTop: 2, opacity: .8 }}>
-                {baixando === ref ? "..." : st.icon}
-              </div>
-            </div>
+            <button
+              key={ref}
+              type="button"
+              className={`futura ${st.classe}`}
+              disabled={travada || !!baixando}
+              title={travada ? `${ref} já quitada` : `Adiantar ${ref}`}
+              onClick={() => setModalForma(ref)}
+            >
+              <span className="futura-ref">{dia}/{mm}</span>
+              <span>{baixando === ref ? '…' : st.icone}</span>
+            </button>
           );
         })}
       </div>
 
-      {/* Histórico completo */}
-      {historico?.historico?.length > 0 && (
+      {pagos.length > 0 && (
         <>
-          <div style={{ fontSize: 11, color: "#475569", marginBottom: 8, marginTop: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            Histórico de pagamentos
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 200, overflowY: "auto", scrollbarWidth: "thin", scrollbarColor: "#2d3148 transparent" }}>
-            {historico.historico.filter(h => h.status === "pago" || h.status === "isento").map(h => {
-              const isIsento = h.status === "isento";
-              const cor = isIsento ? "#22d3ee" : "#4ade80";
-              const bgC = isIsento ? "rgba(34,211,238,.07)" : "rgba(34,197,94,.07)";
-              const bdC = isIsento ? "rgba(34,211,238,.18)" : "rgba(34,197,94,.18)";
+          <div className="rotulo mt-4">Histórico de pagamentos</div>
+          <div className="pilha-fina historico-lista">
+            {pagos.map(h => {
+              const isento = h.status === 'isento';
               return (
-                <div key={h.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 9, background: bgC, border: `1px solid ${bdC}` }}>
-                  <span style={{ color: cor, fontWeight: 800, fontSize: 12, minWidth: 54 }}>{h.referencia}</span>
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
-                    {isIsento ? (
-                      <span style={{ color: "#22d3ee", fontSize: 11 }}>🆓 Isento — mês de instalação</span>
-                    ) : (
+                <div key={h.id || h.referencia} className="fatura-linha">
+                  <span className="fatura-ref">{h.referencia}</span>
+                  <span className="fatura-meio">
+                    {isento ? '🆓 Isento — mês de instalação' : (
                       <>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          {valorPlano && <span style={{ fontWeight: 700, fontSize: 12, color: "#4ade80" }}>R$ {valorPlano},00</span>}
-                          {h.forma_pagamento && (
-                            <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "rgba(56,189,248,.1)", color: "#38bdf8", fontWeight: 700 }}>
-                              {h.forma_pagamento.toUpperCase()}
-                            </span>
-                          )}
-                        </div>
-                        {h.pago_em && <span style={{ fontSize: 10, color: "#475569" }}>{new Date(h.pago_em).toLocaleDateString("pt-BR")}</span>}
+                        {valor && <b>{fmtMoeda(valor)}</b>}
+                        {h.forma_pagamento && <span className="badge badge-info">{h.forma_pagamento.toUpperCase()}</span>}
+                        {h.pago_em && <span className="dica">{new Date(h.pago_em).toLocaleDateString('pt-BR')}</span>}
                       </>
                     )}
-                  </div>
-                  {!isIsento && (
-                    <button disabled={!!baixando} onClick={() => reverter(h.referencia)}
-                      style={{ padding: "3px 9px", borderRadius: 5, border: "1px solid rgba(239,68,68,.2)", background: "transparent", color: "#f87171", fontSize: 10, cursor: "pointer", flexShrink: 0 }}>
-                      ↩
-                    </button>
+                  </span>
+                  {!isento && (
+                    <button type="button" className="btn btn-perigo btn-pequeno" onClick={() => reverter(h.referencia)} disabled={!!baixando}>↩</button>
                   )}
                 </div>
               );

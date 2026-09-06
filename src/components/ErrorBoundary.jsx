@@ -1,4 +1,4 @@
-// src/components/ErrorBoundary.jsx
+// src/components/ErrorBoundary.jsx — erro de componente nao derruba o painel.
 import React from 'react';
 
 export class ErrorBoundary extends React.Component {
@@ -11,35 +11,29 @@ export class ErrorBoundary extends React.Component {
     return { erro: e };
   }
 
+  componentDidCatch(erro, info) {
+    console.error('Erro de renderização:', erro, info?.componentStack);
+  }
+
   render() {
     if (this.state.erro) {
       return (
-        <div style={{
-          padding: '2rem',
-          color: '#f87171',
-          background: '#0d1a2e',
-          minHeight: '100vh',
-          fontFamily: 'monospace'
-        }}>
-          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
-            ⚠️ Erro no componente
+        <div className="page">
+          <div className="card card-pad">
+            <div className="vazio">
+              <span className="vazio-emoji">💥</span>
+              Esta tela quebrou ao carregar
+              <span className="vazio-dica">{this.state.erro?.message}</span>
+            </div>
+            <div className="linha" style={{ justifyContent: 'center' }}>
+              <button type="button" className="btn btn-primario" onClick={() => this.setState({ erro: null })}>
+                Tentar de novo
+              </button>
+              <button type="button" className="btn" onClick={() => window.location.reload()}>
+                Recarregar o painel
+              </button>
+            </div>
           </div>
-          <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 16 }}>
-            {this.state.erro?.message}
-          </div>
-          <button
-            onClick={() => this.setState({ erro: null })}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 8,
-              background: '#1e3a5f',
-              color: '#38bdf8',
-              border: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            Tentar novamente
-          </button>
         </div>
       );
     }

@@ -1,268 +1,215 @@
+// src/pages/novos.jsx — instalações: o que foi pedido e o que está agendado.
 import React, { useState } from 'react';
 import { useFetch } from '../hooks/useFetch';
+import { Card } from '../components/Card';
+import { Spinner } from '../components/Spinner';
 import { api } from '../api/client';
 
+const BADGE = {
+  finalizado: 'badge-pago',
+  concluido: 'badge-pago',
+  confirmado: 'badge-promessa',
+  cancelado: 'badge-vencida',
+};
+
+const STATUS_POR_ABA = {
+  solicitacoes: ['solicitado', 'confirmado', 'finalizado'],
+  agendadas: ['agendado', 'confirmado', 'concluido', 'cancelado'],
+};
+
 export function PageNovos() {
-    const [abaAtiva, setAbaAtiva] = useState('solicitacoes'); // 'solicitacoes' ou 'agendadas'
-    const [filtroStatus, setFiltroStatus] = useState('todos');
-    
-    // Dados das solicitações de instalação (novos_clientes)
-    const { data: solicitacoes, loading: loadingSolic, refetch: refetchSolic } = useFetch(
-        `/api/instalacoes?status=${filtroStatus === 'todos' ? '' : filtroStatus}`
-    );
-    
-    // Dados das instalações agendadas
-    const { data: agendadas, loading: loadingAgend, refetch: refetchAgend } = useFetch(
-        `/api/instalacoes-agendadas?status=${filtroStatus === 'todos' ? '' : filtroStatus}`
-    );
+  const [aba, setAba] = useState('solicitacoes');
+  const [status, setStatus] = useState('todos');
+  const [agindo, setAgindo] = useState(null);
 
-    async function confirmarInstalacao(id) {
-        if (confirm('Confirmar esta instalação? O cliente será adicionado à base.')) {
-            try {
-                await api.post(`/api/instalacoes-agendadas/${id}/confirmar`);
-                alert('✅ Cliente adicionado à base com sucesso!');
-                refetchAgend();
-                refetchSolic(); // Atualiza também as solicitações se necessário
-            } catch(e) {
-                alert('❌ Erro: ' + e.message);
-            }
-        }
+  const filtro = status === 'todos' ? '' : status;
+  const { data: solicitacoes, loading: carregandoSolic, refetch: recarregarSolic } =
+    useFetch(`/api/instalacoes?status=${filtro}`);
+  const { data: agendadas, loading: carregandoAgend, refetch: recarregarAgend } =
+    useFetch(`/api/instalacoes-agendadas?status=${filtro}`);
+
+  // Trocar de aba com um status que so existe na outra devolveria lista vazia
+  // sem explicacao — por isso o filtro volta pra "todos" junto com a aba.
+  const trocarAba = (nova) => { setAba(nova); setStatus('todos'); };
+
+  const agir = async (url, pergunta, recarregar, aviso) => {
+    if (!confirm(pergunta)) return;
+    setAgindo(url);
+    try {
+      await api.post(url);
+      if (aviso) alert(aviso);
+      recarregar();
+    } catch (e) {
+      alert(`Não consegui aplicar: ${e.message}`);
     }
+    setAgindo(null);
+  };
 
-    async function concluirInstalacao(id) {
-        if (confirm('Marcar instalação como concluída?')) {
-            await api.post(`/api/instalacoes-agendadas/${id}/concluir`);
-            refetchAgend();
-        }
-    }
+  const listaSolic = solicitacoes || [];
+  const listaAgend = agendadas || [];
 
-    async function cancelarInstalacao(id) {
-        if (confirm('Cancelar esta instalação?')) {
-            await api.post(`/api/instalacoes-agendadas/${id}/cancelar`);
-            refetchAgend();
-        }
-    }
-
-    async function finalizarSolicitacao(id) {
-        if (confirm('Finalizar esta solicitação? O cliente será adicionado à base.')) {
-            await api.post(`/api/instalacoes/${id}/finalizar`);
-            refetchSolic();
-        }
-    }
-
-    async function confirmarSolicitacao(id) {
-        if (confirm('Confirmar esta solicitação?')) {
-            await api.post(`/api/instalacoes/${id}/confirmar`);
-            refetchSolic();
-        }
-    }
-
-    return (
-        <div className="page">
-            <h1 className="page-title">🔧 Instalações</h1>
-            
-            {/* Abas */}
-            <div style={{ 
-                display: 'flex', 
-                gap: '10px', 
-                marginBottom: '1.5rem', 
-                borderBottom: '1px solid var(--border)',
-                paddingBottom: '2px'
-            }}>
-                <button
-                    className={`filtro-btn ${abaAtiva === 'solicitacoes' ? 'filtro-ativo' : ''}`}
-                    onClick={() => setAbaAtiva('solicitacoes')}
-                    style={{ 
-                        fontSize: '14px', 
-                        padding: '8px 16px', 
-                        borderRadius: '8px 8px 0 0',
-                        borderBottom: abaAtiva === 'solicitacoes' ? '2px solid var(--blue)' : 'none'
-                    }}
-                >
-                    📋 Solicitações {solicitacoes?.length ? `(${solicitacoes.length})` : ''}
-                </button>
-                <button
-                    className={`filtro-btn ${abaAtiva === 'agendadas' ? 'filtro-ativo' : ''}`}
-                    onClick={() => setAbaAtiva('agendadas')}
-                    style={{ 
-                        fontSize: '14px', 
-                        padding: '8px 16px', 
-                        borderRadius: '8px 8px 0 0',
-                        borderBottom: abaAtiva === 'agendadas' ? '2px solid var(--blue)' : 'none'
-                    }}
-                >
-                    📅 Agendadas {agendadas?.length ? `(${agendadas.length})` : ''}
-                </button>
-            </div>
-
-            {/* Filtro de status */}
-            <div style={{ marginBottom: '1.5rem' }}>
-                <select 
-                    className="busca-input" 
-                    style={{ width: '200px' }}
-                    value={filtroStatus}
-                    onChange={(e) => setFiltroStatus(e.target.value)}
-                >
-                    <option value="todos">Todos os status</option>
-                    {abaAtiva === 'solicitacoes' ? (
-                        <>
-                            <option value="solicitado">Solicitado</option>
-                            <option value="confirmado">Confirmado</option>
-                            <option value="finalizado">Finalizado</option>
-                        </>
-                    ) : (
-                        <>
-                            <option value="agendado">Agendado</option>
-                            <option value="confirmado">Confirmado</option>
-                            <option value="concluido">Concluído</option>
-                            <option value="cancelado">Cancelado</option>
-                        </>
-                    )}
-                </select>
-            </div>
-
-            {/* Conteúdo das abas */}
-            <div className="card">
-                {abaAtiva === 'solicitacoes' ? (
-                    // =====================================================
-                    // TABELA DE SOLICITAÇÕES (novos_clientes)
-                    // =====================================================
-                    loadingSolic ? (
-                        <div className="spinner-wrap"><div className="spinner"></div></div>
-                    ) : (
-                        <div className="tabela-scroll">
-                            <table className="tabela">
-                                <thead>
-                                    <tr>
-                                        <th>Solicitado em</th>
-                                        <th>Cliente</th>
-                                        <th>Telefone</th>
-                                        <th>Plano</th>
-                                        <th>Roteador</th>
-                                        <th>Endereço</th>
-                                        <th>Disponibilidade</th>
-                                        <th>Status</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {solicitacoes?.length === 0 ? (
-                                        <tr><td colSpan="9" className="td-empty">Nenhuma solicitação encontrada</td></tr>
-                                    ) : (
-                                        solicitacoes?.map(s => (
-                                            <tr key={s.id}>
-                                                <td>{new Date(s.cadastrado_em).toLocaleDateString()}</td>
-                                                <td className="td-nome">{s.nome}</td>
-                                                <td className="td-mono">{s.telefone || s.numero?.replace('@c.us', '')}</td>
-                                                <td>{s.plano}</td>
-                                                <td>{s.roteador}</td>
-                                                <td>{s.endereco}</td>
-                                                <td>{s.disponibilidade}</td>
-                                                <td>
-                                                    <span className={`badge badge-${
-                                                        s.status === 'finalizado' ? 'pago' : 
-                                                        s.status === 'confirmado' ? 'promessa' : 'pendente'
-                                                    }`}>
-                                                        {s.status}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    {s.status === 'solicitado' && (
-                                                        <button 
-                                                            className="btn-icon"
-                                                            onClick={() => confirmarSolicitacao(s.id)}
-                                                            style={{ marginRight: '8px' }}
-                                                            title="Confirmar solicitação"
-                                                        >✅ Confirmar</button>
-                                                    )}
-                                                    {s.status === 'confirmado' && (
-                                                        <button 
-                                                            className="btn-icon"
-                                                            onClick={() => finalizarSolicitacao(s.id)}
-                                                            title="Finalizar instalação"
-                                                        >🏁 Finalizar</button>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    )
-                ) : (
-                    // =====================================================
-                    // TABELA DE AGENDAMENTOS (instalacoes_agendadas)
-                    // =====================================================
-                    loadingAgend ? (
-                        <div className="spinner-wrap"><div className="spinner"></div></div>
-                    ) : (
-                        <div className="tabela-scroll">
-                            <table className="tabela">
-                                <thead>
-                                    <tr>
-                                        <th>Data Agendada</th>
-                                        <th>Cliente</th>
-                                        <th>Telefone</th>
-                                        <th>Endereço</th>
-                                        <th>Observação</th>
-                                        <th>Status</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {agendadas?.length === 0 ? (
-                                        <tr><td colSpan="7" className="td-empty">Nenhuma instalação agendada</td></tr>
-                                    ) : (
-                                        agendadas?.map(inst => (
-                                            <tr key={inst.id}>
-                                                <td>{new Date(inst.data).toLocaleDateString()}</td>
-                                                <td className="td-nome">{inst.nome}</td>
-                                                <td className="td-mono">{inst.numero.replace('@c.us', '')}</td>
-                                                <td>{inst.endereco}</td>
-                                                <td>{inst.observacao || '-'}</td>
-                                                <td>
-                                                    <span className={`badge badge-${
-                                                        inst.status === 'concluido' ? 'pago' : 
-                                                        inst.status === 'cancelado' ? 'vencida' : 
-                                                        inst.status === 'confirmado' ? 'promessa' : 'pendente'
-                                                    }`}>
-                                                        {inst.status}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    {inst.status === 'agendado' && (
-                                                        <>
-                                                            <button 
-                                                                className="btn-icon"
-                                                                onClick={() => confirmarInstalacao(inst.id)}
-                                                                style={{ marginRight: '8px' }}
-                                                                title="Confirmar (adicionar à base)"
-                                                            >✅ Confirmar</button>
-                                                            <button 
-                                                                className="btn-icon"
-                                                                onClick={() => cancelarInstalacao(inst.id)}
-                                                                title="Cancelar agendamento"
-                                                            >❌ Cancelar</button>
-                                                        </>
-                                                    )}
-                                                    {inst.status === 'confirmado' && (
-                                                        <button 
-                                                            className="btn-icon"
-                                                            onClick={() => concluirInstalacao(inst.id)}
-                                                            title="Concluir instalação"
-                                                        >🏁 Concluir</button>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    )
-                )}
-            </div>
+  return (
+    <div className="page">
+      <div className="page-topo">
+        <div>
+          <h1 className="page-title">Instalações</h1>
+          <div className="page-sub">Confirmar uma instalação agendada adiciona o cliente à base.</div>
         </div>
-    );
+      </div>
+
+      <div className="abas">
+        <button
+          type="button"
+          className={`aba ${aba === 'solicitacoes' ? 'aba-ativa' : ''}`}
+          onClick={() => trocarAba('solicitacoes')}
+        >
+          📋 Solicitações {listaSolic.length ? `(${listaSolic.length})` : ''}
+        </button>
+        <button
+          type="button"
+          className={`aba ${aba === 'agendadas' ? 'aba-ativa' : ''}`}
+          onClick={() => trocarAba('agendadas')}
+        >
+          📅 Agendadas {listaAgend.length ? `(${listaAgend.length})` : ''}
+        </button>
+      </div>
+
+      <div className="linha mb-3">
+        <label className="dica" htmlFor="filtro-status" style={{ marginTop: 0 }}>Status</label>
+        <select
+          id="filtro-status"
+          className="entrada entrada-auto"
+          value={status}
+          onChange={e => setStatus(e.target.value)}
+        >
+          <option value="todos">Todos</option>
+          {STATUS_POR_ABA[aba].map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+
+      <Card>
+        {aba === 'solicitacoes' ? (
+          carregandoSolic ? <Spinner /> : listaSolic.length === 0 ? (
+            <div className="vazio"><span className="vazio-emoji">📋</span>Nenhuma solicitação</div>
+          ) : (
+            <div className="tabela-scroll">
+              <table className="tabela">
+                <thead>
+                  <tr>
+                    <th>Solicitado</th><th>Cliente</th><th>Telefone</th><th>Plano</th>
+                    <th>Roteador</th><th>Endereço</th><th>Disponibilidade</th><th>Status</th><th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {listaSolic.map(s => (
+                    <tr key={s.id}>
+                      <td className="td-muted">
+                        {s.cadastrado_em ? new Date(s.cadastrado_em).toLocaleDateString('pt-BR') : '—'}
+                      </td>
+                      <td className="td-nome">{s.nome}</td>
+                      <td className="td-mono">{s.telefone || s.numero?.replace('@c.us', '') || '—'}</td>
+                      <td>{s.plano || '—'}</td>
+                      <td>{s.roteador || '—'}</td>
+                      <td className="td-corta">{s.endereco || '—'}</td>
+                      <td className="td-muted">{s.disponibilidade || '—'}</td>
+                      <td><span className={`badge ${BADGE[s.status] || 'badge-pendente'}`}>{s.status}</span></td>
+                      <td>
+                        {s.status === 'solicitado' && (
+                          <button
+                            type="button"
+                            className="btn btn-info btn-pequeno"
+                            disabled={agindo === `/api/instalacoes/${s.id}/confirmar`}
+                            onClick={() => agir(`/api/instalacoes/${s.id}/confirmar`, 'Confirmar esta solicitação?', recarregarSolic)}
+                          >
+                            ✅ Confirmar
+                          </button>
+                        )}
+                        {s.status === 'confirmado' && (
+                          <button
+                            type="button"
+                            className="btn btn-ok btn-pequeno"
+                            disabled={agindo === `/api/instalacoes/${s.id}/finalizar`}
+                            onClick={() => agir(
+                              `/api/instalacoes/${s.id}/finalizar`,
+                              'Finalizar? O cliente será adicionado à base.',
+                              recarregarSolic,
+                            )}
+                          >
+                            🏁 Finalizar
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        ) : (
+          carregandoAgend ? <Spinner /> : listaAgend.length === 0 ? (
+            <div className="vazio"><span className="vazio-emoji">📅</span>Nenhuma instalação agendada</div>
+          ) : (
+            <div className="tabela-scroll">
+              <table className="tabela">
+                <thead>
+                  <tr><th>Data</th><th>Cliente</th><th>Telefone</th><th>Endereço</th><th>Observação</th><th>Status</th><th>Ações</th></tr>
+                </thead>
+                <tbody>
+                  {listaAgend.map(i => (
+                    <tr key={i.id}>
+                      <td>{i.data ? new Date(i.data).toLocaleDateString('pt-BR') : '—'}</td>
+                      <td className="td-nome">{i.nome}</td>
+                      <td className="td-mono">{i.numero?.replace('@c.us', '') || '—'}</td>
+                      <td className="td-corta">{i.endereco || '—'}</td>
+                      <td className="td-muted">{i.observacao || '—'}</td>
+                      <td><span className={`badge ${BADGE[i.status] || 'badge-pendente'}`}>{i.status}</span></td>
+                      <td>
+                        <div className="page-acoes">
+                          {i.status === 'agendado' && (
+                            <>
+                              <button
+                                type="button"
+                                className="btn btn-info btn-pequeno"
+                                disabled={agindo === `/api/instalacoes-agendadas/${i.id}/confirmar`}
+                                onClick={() => agir(
+                                  `/api/instalacoes-agendadas/${i.id}/confirmar`,
+                                  'Confirmar? O cliente será adicionado à base.',
+                                  recarregarAgend,
+                                  '✅ Cliente adicionado à base.',
+                                )}
+                              >
+                                ✅ Confirmar
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-perigo btn-pequeno"
+                                disabled={agindo === `/api/instalacoes-agendadas/${i.id}/cancelar`}
+                                onClick={() => agir(`/api/instalacoes-agendadas/${i.id}/cancelar`, 'Cancelar este agendamento?', recarregarAgend)}
+                              >
+                                ❌ Cancelar
+                              </button>
+                            </>
+                          )}
+                          {i.status === 'confirmado' && (
+                            <button
+                              type="button"
+                              className="btn btn-ok btn-pequeno"
+                              disabled={agindo === `/api/instalacoes-agendadas/${i.id}/concluir`}
+                              onClick={() => agir(`/api/instalacoes-agendadas/${i.id}/concluir`, 'Marcar instalação como concluída?', recarregarAgend)}
+                            >
+                              🏁 Concluir
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        )}
+      </Card>
+    </div>
+  );
 }

@@ -2,162 +2,86 @@
 import React, { useState } from 'react';
 import { api } from '../api/client';
 
+const DIAS = [5, 10, 15, 20, 25, 30];
+
 export const ModalCriarBase = ({ onClose, onCriada }) => {
-  const [form, setForm] = useState({
-    nome: "",
-    descricao: "",
-    dias: []
-  });
+  const [nome, setNome] = useState('');
+  const [descricao, setDescricao] = useState('');
+  const [dias, setDias] = useState([]);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState(null);
 
-  const toggleDia = (dia) => {
-    setForm(prev => ({
-      ...prev,
-      dias: prev.dias.includes(dia)
-        ? prev.dias.filter(d => d !== dia)
-        : [...prev.dias, dia].sort((a, b) => a - b)
-    }));
+  const alternarDia = (dia) => {
+    setDias(prev => (prev.includes(dia) ? prev.filter(d => d !== dia) : [...prev, dia].sort((a, b) => a - b)));
   };
 
   const salvar = async () => {
-    if (!form.nome.trim()) {
-      setErro("Nome é obrigatório");
-      return;
-    }
-    if (form.dias.length === 0) {
-      setErro("Selecione pelo menos um dia de vencimento");
-      return;
-    }
+    if (!nome.trim()) { setErro('Nome é obrigatório'); return; }
+    if (dias.length === 0) { setErro('Selecione pelo menos um dia de vencimento'); return; }
 
     setSalvando(true);
     setErro(null);
     try {
-      const json = await api.post("/api/bases", form);
-      if (json.id) {
-        onCriada();
-      } else {
-        setErro(json.erro || "Erro ao criar base");
-      }
+      const json = await api.post('/api/bases', { nome: nome.trim(), descricao, dias });
+      if (json?.id) onCriada();
+      else setErro(json?.erro || 'Não consegui criar a base');
     } catch (e) {
-      setErro(e.message || "Falha de conexão");
+      setErro(e.message || 'Falha de conexão');
     }
     setSalvando(false);
   };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 450 }}>
-        <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#38bdf8', marginBottom: 16 }}>
-          ➕ Nova Base de Clientes
-        </div>
+      <div className="modal-box" onClick={e => e.stopPropagation()}>
+        <div className="modal-title">Nova base de clientes</div>
 
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase' }}>
-            Nome da Base *
-          </label>
+        <div className="campo">
+          <label className="rotulo" htmlFor="base-nome">Nome da base *</label>
           <input
-            type="text"
-            value={form.nome}
-            onChange={e => setForm(prev => ({ ...prev, nome: e.target.value }))}
-            placeholder="Ex: JME, Clientes 2024, etc"
-            style={{
-              width: '100%',
-              padding: '9px 12px',
-              borderRadius: 8,
-              border: '1px solid #1e3a5f',
-              background: '#0d1a2e',
-              color: '#e2e8f0',
-              fontSize: 13
-            }}
+            id="base-nome"
+            className="entrada"
+            value={nome}
+            onChange={e => setNome(e.target.value)}
+            placeholder="Ex: JME, Centro, Filial"
+            autoFocus
           />
         </div>
 
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase' }}>
-            Descrição (opcional)
-          </label>
+        <div className="campo">
+          <label className="rotulo" htmlFor="base-desc">Descrição</label>
           <input
-            type="text"
-            value={form.descricao}
-            onChange={e => setForm(prev => ({ ...prev, descricao: e.target.value }))}
-            placeholder="Ex: Base principal, Filial centro, etc"
-            style={{
-              width: '100%',
-              padding: '9px 12px',
-              borderRadius: 8,
-              border: '1px solid #1e3a5f',
-              background: '#0d1a2e',
-              color: '#e2e8f0',
-              fontSize: 13
-            }}
+            id="base-desc"
+            className="entrada"
+            value={descricao}
+            onChange={e => setDescricao(e.target.value)}
+            placeholder="Ex: base principal"
           />
         </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 8, textTransform: 'uppercase' }}>
-            Dias de Vencimento *
-          </label>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {[5, 10, 15, 20, 25, 30].map(dia => (
+        <div className="campo">
+          <span className="rotulo">Dias de vencimento *</span>
+          <div className="opcoes">
+            {DIAS.map(dia => (
               <button
                 key={dia}
-                onClick={() => toggleDia(dia)}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: 20,
-                  border: '1px solid',
-                  borderColor: form.dias.includes(dia) ? '#38bdf8' : '#2d3148',
-                  background: form.dias.includes(dia) ? 'rgba(56,189,248,0.15)' : 'transparent',
-                  color: form.dias.includes(dia) ? '#38bdf8' : '#94a3b8',
-                  fontWeight: 600,
-                  fontSize: 13,
-                  cursor: 'pointer'
-                }}
+                type="button"
+                className={`opcao ${dias.includes(dia) ? 'opcao-ativa' : ''}`}
+                onClick={() => alternarDia(dia)}
               >
                 Dia {dia}
               </button>
             ))}
           </div>
+          <div className="dica">Cada dia vira uma aba dentro da base, com seu próprio ciclo.</div>
         </div>
 
-        {erro && (
-          <div style={{ color: '#f87171', fontSize: 13, marginBottom: 16 }}>
-            {erro}
-          </div>
-        )}
+        {erro && <div className="aviso aviso-erro">{erro}</div>}
 
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button
-            onClick={salvar}
-            disabled={salvando}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 8,
-              border: 'none',
-              background: salvando ? '#1e3a5f' : '#2563eb',
-              color: '#fff',
-              fontWeight: 600,
-              fontSize: 13,
-              cursor: salvando ? 'not-allowed' : 'pointer'
-            }}
-          >
-            {salvando ? 'Criando...' : 'Criar Base'}
-          </button>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 8,
-              border: '1px solid #374151',
-              background: 'transparent',
-              color: '#94a3b8',
-              fontWeight: 600,
-              fontSize: 13,
-              cursor: 'pointer'
-            }}
-          >
-            Cancelar
+        <div className="modal-footer">
+          <button type="button" className="btn" onClick={onClose}>Cancelar</button>
+          <button type="button" className="btn btn-primario" onClick={salvar} disabled={salvando}>
+            {salvando ? 'Criando…' : 'Criar base'}
           </button>
         </div>
       </div>

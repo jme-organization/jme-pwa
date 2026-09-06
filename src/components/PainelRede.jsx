@@ -1,158 +1,112 @@
-// src/components/PainelRede.jsx
+// src/components/PainelRede.jsx — estado da rede que o bot conta pro cliente.
 import React, { useState, useEffect } from 'react';
 import { Card } from './Card';
-import { REDE_LABELS } from '../constants';
 import { api } from '../api/client';
 
-export const PainelRede = ({ situacaoRede: inicial, previsaoRetorno: prevInicial, onAtualizar }) => {
-  const [status, setStatus] = useState(inicial || "normal");
-  const [previsao, setPrevisao] = useState(prevInicial === "sem previsão" ? "" : prevInicial || "");
-  const [motivo, setMotivo] = useState("");
+const REDE = {
+  normal:        { label: 'Normal',        emoji: '🟢', classe: 'badge-pago' },
+  instavel:      { label: 'Instável',      emoji: '⚠️', classe: 'badge-pendente' },
+  manutencao:    { label: 'Manutenção',    emoji: '🔧', classe: 'badge-pendente' },
+  fibra_rompida: { label: 'Fibra rompida', emoji: '🔴', classe: 'badge-vencida' },
+};
+
+export const PainelRede = ({ situacaoRede: inicial, previsaoRetorno: prevInicial }) => {
+  const [status, setStatus] = useState(inicial || 'normal');
+  const [previsao, setPrevisao] = useState(prevInicial === 'sem previsão' ? '' : prevInicial || '');
+  const [motivo, setMotivo] = useState('');
   const [salvando, setSalvando] = useState(false);
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useState(null);
 
-  // Busca o status real ao montar — não depende do SSE chegar a tempo
+  // Busca o estado real ao montar — nao depende do SSE chegar a tempo.
   useEffect(() => {
-    api.get("/api/rede")
+    api.get('/api/rede')
       .then(d => {
-        if (d) {
-          setStatus(d.situacaoRede || "normal");
-          setPrevisao(d.previsaoRetorno === "sem previsão" ? "" : d.previsaoRetorno || "");
-          setMotivo(d.motivoRede || "");
-        }
-      }).catch(() => {});
-  }, []); // só ao montar
+        if (!d) return;
+        setStatus(d.situacaoRede || 'normal');
+        setPrevisao(d.previsaoRetorno === 'sem previsão' ? '' : d.previsaoRetorno || '');
+        setMotivo(d.motivoRede || '');
+      })
+      .catch(() => { /* a tela ja mostra o ultimo estado conhecido */ });
+  }, []);
 
-  // Sincroniza quando SSE atualiza (outro admin mudou o status)
+  // Outro admin mudou o estado: o SSE traz e a tela acompanha.
+  useEffect(() => { if (inicial) setStatus(inicial); }, [inicial]);
   useEffect(() => {
-    if (inicial && inicial !== "normal") setStatus(inicial);
-  }, [inicial]);
-  useEffect(() => {
-    if (prevInicial && prevInicial !== "sem previsão") setPrevisao(prevInicial);
+    if (prevInicial && prevInicial !== 'sem previsão') setPrevisao(prevInicial);
   }, [prevInicial]);
 
   const salvar = async () => {
     setSalvando(true);
-    setMsg("");
+    setMsg(null);
     try {
-      await api.post("/api/rede", { status, previsao: previsao || "sem previsão", motivo: motivo || "" });
-      setMsg("✅ Status atualizado!");
-      if (onAtualizar) onAtualizar();
-    } catch {
-      setMsg("❌ Sem conexão");
+      await api.post('/api/rede', { status, previsao: previsao || 'sem previsão', motivo: motivo || '' });
+      setMsg({ ok: true, txt: 'Estado atualizado.' });
+    } catch (e) {
+      setMsg({ ok: false, txt: e.message || 'Não consegui salvar.' });
     }
     setSalvando(false);
-    setTimeout(() => setMsg(""), 3000);
+    setTimeout(() => setMsg(null), 4000);
   };
 
-  const info = REDE_LABELS[status] || REDE_LABELS.normal;
+  const info = REDE[status] || REDE.normal;
+  const anormal = status !== 'normal';
 
   return (
-    <Card className="rede-card" style={{ padding: '1rem' }}>
-      <div className="rede-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <span className="rede-title" style={{ fontWeight: 700 }}>📡 Status da Rede</span>
-        <span
-          className="rede-badge"
-          style={{
-            background: info.cor + "22",
-            color: info.cor,
-            border: `1px solid ${info.cor}55`,
-            padding: '4px 8px',
-            borderRadius: 20,
-            fontSize: 11,
-            fontWeight: 600
-          }}
-        >
-          {info.emoji} {info.label}
-        </span>
+    <Card className="card-pad">
+      <div className="linha mb-2">
+        <span className="card-titulo">📡 Estado da rede</span>
+        <span className={`badge ${info.classe} linha-fim`}>{info.emoji} {info.label}</span>
       </div>
 
-      <div className="rede-body">
-        <div className="rede-btns" style={{ display: 'flex', gap: 8, marginBottom: '1rem', flexWrap: 'wrap' }}>
-          {Object.entries(REDE_LABELS).map(([val, cfg]) => (
-            <button
-              key={val}
-              className={`rede-btn ${status === val ? "rede-btn-ativo" : ""}`}
-              style={{
-                flex: 1,
-                minWidth: 100,
-                padding: '8px',
-                borderRadius: 8,
-                border: `1px solid ${status === val ? cfg.cor : '#2d3148'}`,
-                background: status === val ? cfg.cor + "18" : '#0f1117',
-                color: status === val ? cfg.cor : '#94a3b8',
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}
-              onClick={() => setStatus(val)}
-            >
-              {cfg.emoji} {cfg.label}
-            </button>
-          ))}
-        </div>
+      <div className="opcoes mb-3">
+        {Object.entries(REDE).map(([valor, cfg]) => (
+          <button
+            key={valor}
+            type="button"
+            className={`opcao ${status === valor ? 'opcao-ativa' : ''}`}
+            onClick={() => setStatus(valor)}
+          >
+            {cfg.emoji} {cfg.label}
+          </button>
+        ))}
+      </div>
 
-        {status !== "normal" && (
-          <div className="rede-previsao" style={{ marginBottom: '1rem' }}>
-            <label className="rede-label" style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4 }}>
-              Previsão de retorno (opcional)
-            </label>
+      {anormal && (
+        <>
+          <div className="campo">
+            <label className="rotulo" htmlFor="rede-previsao">Previsão de retorno</label>
             <input
-              className="rede-input"
-              placeholder="Ex: hoje às 18h, amanhã às 8h..."
+              id="rede-previsao"
+              className="entrada"
+              placeholder="Ex: hoje às 18h"
               value={previsao}
-              onChange={(e) => setPrevisao(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: 8,
-                border: '1px solid #2d3148',
-                background: '#0f1117',
-                color: '#e2e8f0',
-                fontSize: 13
-              }}
+              onChange={e => setPrevisao(e.target.value)}
             />
           </div>
-        )}
 
-        {status !== "normal" && (
-          <div style={{ marginTop: 12, marginBottom: 4 }}>
-            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 6 }}>
-              📋 Motivo (opcional — aparece para os clientes)
-            </div>
+          <div className="campo">
+            <label className="rotulo" htmlFor="rede-motivo">Motivo — o cliente lê isto</label>
             <textarea
+              id="rede-motivo"
+              className="entrada"
+              rows={2}
+              placeholder="Ex: rompimento de fibra na Rua X. Equipe a caminho."
               value={motivo}
               onChange={e => setMotivo(e.target.value)}
-              placeholder="Ex: Rompimento de fibra na Rua X. Equipe trabalhando para resolver."
-              rows={2}
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 8,
-                border: '1px solid #2d3148', background: '#0a0d16', color: '#e2e8f0',
-                fontSize: 13, resize: 'vertical', boxSizing: 'border-box' }}
             />
           </div>
-        )}
+        </>
+      )}
 
-        <div className="rede-footer" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button
-            className="btn-salvar-rede"
-            onClick={salvar}
-            disabled={salvando}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 8,
-              border: 'none',
-              background: '#2563eb',
-              color: '#fff',
-              fontWeight: 600,
-              fontSize: 12,
-              cursor: salvando ? 'not-allowed' : 'pointer',
-              opacity: salvando ? 0.5 : 1
-            }}
-          >
-            {salvando ? "Salvando..." : "Salvar Status"}
-          </button>
-          {msg && <span className="rede-msg" style={{ fontSize: 12, color: msg.includes('✅') ? '#4ade80' : '#f87171' }}>{msg}</span>}
-        </div>
+      <div className="linha">
+        <button type="button" className="btn btn-primario btn-pequeno" onClick={salvar} disabled={salvando}>
+          {salvando ? 'Salvando…' : 'Salvar estado'}
+        </button>
+        {msg && (
+          <span className={`dica ${msg.ok ? 'val-ok' : 'val-erro'}`} style={{ marginTop: 0 }}>
+            {msg.ok ? '✅' : '❌'} {msg.txt}
+          </span>
+        )}
       </div>
     </Card>
   );
