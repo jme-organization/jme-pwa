@@ -31,6 +31,9 @@ export function PageBoasVindas() {
   const [alvo, setAlvo] = useState(null);
   const [mensagem, setMensagem] = useState('');
   const [solicitarCarne, setSolicitarCarne] = useState(false);
+  // Carne completo direto do SGP: o dono pediu que a boas-vindas ja leve os
+  // boletos das proximas mensalidades, porque hoje ele manda a mao — quando manda.
+  const [enviarCarneSgp, setEnviarCarneSgp] = useState(true);
   const [obsCarne, setObsCarne] = useState('');
   const [arquivo, setArquivo] = useState(null);
 
@@ -59,6 +62,7 @@ export function PageBoasVindas() {
     // document.getElementById no momento do envio.
     setMensagem(modeloMensagem(cliente));
     setSolicitarCarne(false);
+    setEnviarCarneSgp(true);
     setObsCarne('');
     setArquivo(null);
   };
@@ -72,6 +76,7 @@ export function PageBoasVindas() {
         mensagem,
         solicitar_carne: solicitarCarne,
         obs_carne: obsCarne,
+        enviar_carne_sgp: enviarCarneSgp,
       };
       if (arquivo) {
         const { base64, nome, tipo } = await lerArquivo(arquivo);
@@ -79,8 +84,15 @@ export function PageBoasVindas() {
         corpo.carne_arquivo_nome = nome;
         corpo.carne_arquivo_tipo = tipo;
       }
-      await api.post('/api/boas-vindas/enviar', corpo, 60000);
-      alert(`✅ Boas-vindas enviada para ${alvo.nome}.`);
+      const r = await api.post('/api/boas-vindas/enviar', corpo, 90000);
+      // O carne vai numa SEGUNDA mensagem: ela pode falhar sozinha, e dizer
+      // "enviado" quando o carne nao foi seria mentir pro dono.
+      const recado = r?.carneSgp
+        ? (r.carneSgp.ok
+            ? ` Carnê com ${r.carneSgp.boletos} boleto(s) enviado.`
+            : ` ⚠️ O carnê NÃO foi: ${r.carneSgp.erro}`)
+        : '';
+      alert(`✅ Boas-vindas enviada para ${alvo.nome}.${recado}`);
       setAlvo(null);
     } catch (e) {
       alert(`❌ Não consegui enviar: ${e.message}`);
@@ -189,6 +201,20 @@ export function PageBoasVindas() {
                 accept=".pdf,.jpg,.jpeg,.png"
                 onChange={e => setArquivo(e.target.files[0] || null)}
               />
+            </div>
+
+            <div className="campo">
+              <label className="marcavel">
+                <input
+                  type="checkbox"
+                  checked={enviarCarneSgp}
+                  onChange={e => setEnviarCarneSgp(e.target.checked)}
+                />
+                🧾 Mandar o carnê completo (boletos do SGP)
+              </label>
+              <div className="dica">
+                Vai numa segunda mensagem, com vencimento, valor e link de cada mensalidade.
+              </div>
             </div>
 
             <div className="campo">

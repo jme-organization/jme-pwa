@@ -14,7 +14,7 @@ export function NotificationProvider({ children }) {
     // alguém dar F5 — um pagamento dado no painel não sumia da contagem.
     const { data: alertas } = useSSEData(
         '/api/dashboard/alertas',
-        ['clientes', 'chamados', 'cancelamentos'],
+        ['clientes', 'chamados', 'cancelamentos', 'conversas'],
     );
 
     useEffect(() => {
@@ -54,6 +54,17 @@ export function NotificationProvider({ children }) {
                 });
             }
             
+            // Conversa sem resposta: cliente que escreveu e ficou esperando
+            if (alertas.conversasNaoLidas > 0) {
+                novasNotificacoes.push({
+                    id: 'conversas',
+                    type: 'warning',
+                    title: 'Mensagens sem resposta',
+                    message: `${alertas.conversasNaoLidas} conversa(s) esperando você no WhatsApp`,
+                    time: new Date().toLocaleTimeString(),
+                });
+            }
+
             // Chamados abertos
             if (alertas.chamadosAbertos > 0) {
                 novasNotificacoes.push({

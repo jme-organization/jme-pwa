@@ -18,6 +18,7 @@ import { PageCarne } from './pages/carne';
 import { PageCancelamentos } from './pages/cancelamentos';
 import { PageBoasVindas } from './pages/boasvindas';
 import { PageChamados } from './pages/chamados';
+import { PageConversas } from './pages/conversas';
 import { PageLogs } from './pages/logs';
 import { PageCobranca } from './pages/cobranca';
 import { PageSGP } from './pages/sgp';
@@ -92,6 +93,7 @@ function AppContent() {
                 <Route path="/" element={<PageDashboard status={status} />} />
                 <Route path="/boas-vindas" element={<PageBoasVindas />} />
                 <Route path="/chamados" element={<PageChamados />} />
+                <Route path="/conversas" element={<PageConversas />} />
                 <Route path="/clientes" element={<PageClientes />} />
                 <Route path="/promessas" element={<PagePromessas />} />
                 <Route path="/carne" element={<PageCarne />} />

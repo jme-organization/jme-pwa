@@ -105,6 +105,11 @@ function JanelaHorario({ Icone, resumo, titulo, valores, onSalvar, extra }) {
   );
 }
 
+// Hora valida ou nada. Sem isto, uma resposta inesperada da rota de horario
+// (lista vazia, corpo de erro) virava a pilula "undefinedh–undefinedh" na barra
+// do topo — apareceu no teste de mesa de 06/09/2026.
+const hora = (valor, padrao) => (Number.isFinite(Number(valor)) ? Number(valor) : padrao);
+
 export function Topbar({ botAtivo, onToggleBot, onAbrirMenu }) {
   const { theme, toggleTheme } = useTheme();
   const { sair } = useAuth();
@@ -147,16 +152,16 @@ export function Topbar({ botAtivo, onToggleBot, onAbrirMenu }) {
         <JanelaHorario
           Icone={FiSend}
           titulo="Janela de cobrança"
-          resumo={cobranca ? `${cobranca.inicio}h–${cobranca.fim}h` : '8h–17h'}
-          valores={{ inicio: cobranca?.inicio ?? 8, fim: cobranca?.fim ?? 17 }}
+          resumo={`${hora(cobranca?.inicio, 8)}h–${hora(cobranca?.fim, 17)}h`}
+          valores={{ inicio: hora(cobranca?.inicio, 8), fim: hora(cobranca?.fim, 17) }}
           onSalvar={salvarCobranca}
         />
 
         <JanelaHorario
           Icone={FiClock}
           titulo="Janela de atendimento"
-          resumo={atendimento?.ativo ? `${atendimento.inicio}h–${atendimento.fim}h` : '24h'}
-          valores={{ inicio: atendimento?.inicio ?? 8, fim: atendimento?.fim ?? 20 }}
+          resumo={atendimento?.ativo ? `${hora(atendimento.inicio, 8)}h–${hora(atendimento.fim, 20)}h` : '24h'}
+          valores={{ inicio: hora(atendimento?.inicio, 8), fim: hora(atendimento?.fim, 20) }}
           onSalvar={salvarAtendimento}
           extra={
             <div className="linha mb-2">

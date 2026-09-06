@@ -7,7 +7,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  FiGrid, FiSmartphone, FiTool, FiCalendar,
+  FiGrid, FiSmartphone, FiTool, FiCalendar, FiMessageCircle,
   FiSend, FiAlertTriangle, FiClock, FiBookOpen, FiRefreshCw,
   FiUsers, FiTruck, FiMessageSquare, FiUserX,
   FiFileText, FiChevronsLeft, FiChevronsRight,
@@ -18,6 +18,7 @@ export const GRUPOS = [
     titulo: 'Operação',
     itens: [
       { to: '/', rotulo: 'Dashboard', Icone: FiGrid, exato: true },
+      { to: '/conversas', rotulo: 'Atendimentos', Icone: FiMessageCircle, contagem: 'conversasNaoLidas' },
       { to: '/qr', rotulo: 'WhatsApp', Icone: FiSmartphone },
       { to: '/chamados', rotulo: 'Chamados', Icone: FiTool, contagem: 'chamadosAbertos' },
       { to: '/agendamentos', rotulo: 'Agendamentos', Icone: FiCalendar },
