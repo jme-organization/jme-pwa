@@ -33,11 +33,17 @@ export function PageConversas() {
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [erroEnvio, setErroEnvio] = useState(null);
-  const [soNaoLidas, setSoNaoLidas] = useState(false);
+  // 'abertas' (padrão) | 'nao_lidas' | 'resolvidas'
+  // Resolvida some da lista: o dono pediu — a conversa continua no WhatsApp
+  // dele, aqui ela sai do caminho pra lista mostrar só o que falta responder.
+  const [aba, setAba] = useState('abertas');
   const fimRef = useRef(null);
 
   const conversas = data?.conversas || [];
-  const visiveis = soNaoLidas ? conversas.filter(c => Number(c.nao_lidas || 0) > 0) : conversas;
+  const resolvidas = conversas.filter(c => c.status === 'resolvida');
+  const visiveis = aba === 'resolvidas' ? resolvidas
+    : aba === 'nao_lidas' ? conversas.filter(c => Number(c.nao_lidas || 0) > 0 && c.status !== 'resolvida')
+    : conversas.filter(c => c.status !== 'resolvida');
   const conversaAtual = conversas.find(c => c.numero === aberta) || null;
 
   const carregarMensagens = useCallback(async (numero, { silencioso = false } = {}) => {
@@ -91,10 +97,16 @@ export function PageConversas() {
     setEnviando(false);
   };
 
+  // Resolver fecha a conversa na tela e some da lista — no WhatsApp ela continua
+  // lá, intacta. Reabrir é um clique na aba "Resolvidas".
   const resolver = async () => {
     if (!aberta) return;
+    const eraResolvida = conversaAtual?.status === 'resolvida';
     try {
-      await api.post(`/api/conversas/${aberta}/status`, { status: 'resolvida' });
+      await api.post(`/api/conversas/${aberta}/status`, {
+        status: eraResolvida ? 'aberta' : 'resolvida',
+      });
+      if (!eraResolvida) setAberta(null);
       refetch();
     } catch (e) { setErroEnvio(e.message); }
   };
@@ -120,20 +132,20 @@ export function PageConversas() {
         </div>
         <div className="page-acoes">
           <div className="filtro-group">
-            <button
-              type="button"
-              className={`filtro-btn ${!soNaoLidas ? 'filtro-ativo' : ''}`}
-              onClick={() => setSoNaoLidas(false)}
-            >
-              Todas
-            </button>
-            <button
-              type="button"
-              className={`filtro-btn ${soNaoLidas ? 'filtro-ativo' : ''}`}
-              onClick={() => setSoNaoLidas(true)}
-            >
-              Não lidas
-            </button>
+            {[
+              ['abertas', 'Abertas'],
+              ['nao_lidas', 'Não lidas'],
+              ['resolvidas', `Resolvidas${resolvidas.length ? ` (${resolvidas.length})` : ''}`],
+            ].map(([v, rotulo]) => (
+              <button
+                key={v}
+                type="button"
+                className={`filtro-btn ${aba === v ? 'filtro-ativo' : ''}`}
+                onClick={() => { setAba(v); setAberta(null); }}
+              >
+                {rotulo}
+              </button>
+            ))}
           </div>
           <button type="button" className="btn btn-pequeno" onClick={refetch}>
             <FiRefreshCw /> Atualizar
@@ -160,9 +172,13 @@ export function PageConversas() {
           ) : visiveis.length === 0 ? (
             <div className="vazio">
               <span className="vazio-emoji">📭</span>
-              {soNaoLidas ? 'Nenhuma conversa sem resposta' : 'Nenhuma conversa ainda'}
+              {aba === 'resolvidas' ? 'Nenhuma conversa resolvida'
+                : aba === 'nao_lidas' ? 'Nenhuma conversa sem resposta'
+                : 'Nenhuma conversa aberta'}
               <span className="vazio-dica">
-                As mensagens que os clientes mandarem para o número do bot aparecem aqui.
+                {aba === 'abertas'
+                  ? 'As mensagens que os clientes mandarem para o número do bot aparecem aqui. O que você resolve sai da lista.'
+                  : 'As conversas resolvidas continuam no seu WhatsApp — aqui elas só saem do caminho.'}
               </span>
             </div>
           ) : visiveis.map(c => (
@@ -226,8 +242,15 @@ export function PageConversas() {
                   <button type="button" className="btn btn-alerta btn-pequeno" onClick={abrirChamado}>
                     <FiTool /> Virar chamado
                   </button>
-                  <button type="button" className="btn btn-ok btn-pequeno" onClick={resolver}>
-                    <FiCheck /> Resolvida
+                  <button
+                    type="button"
+                    className={`btn btn-pequeno ${conversaAtual.status === 'resolvida' ? '' : 'btn-ok'}`}
+                    onClick={resolver}
+                    title={conversaAtual.status === 'resolvida'
+                      ? 'Voltar para a lista de abertas'
+                      : 'Sai da lista; a conversa continua no seu WhatsApp'}
+                  >
+                    <FiCheck /> {conversaAtual.status === 'resolvida' ? 'Reabrir' : 'Resolvida'}
                   </button>
                 </div>
               </div>

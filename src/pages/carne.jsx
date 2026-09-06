@@ -166,21 +166,22 @@ function AbaRenovacao() {
   const liberados = data?.liberados || [];
   const auto = Boolean(data?.auto);
 
-  // Carnê vazio nem sempre é esquecimento: tem cliente que é cortesia, isento ou
-  // combinou pagar por fora. Liberar tira da lista e da geração automática, sem
-  // apagar nada — dá pra voltar a cobrar depois.
+  // Carnê vazio nem sempre é esquecimento. O dono explicou: tem cliente instável
+  // que ele NÃO cobra por carnê de propósito, porque só gera estresse — e esse
+  // cliente aparecendo todo dia na lista faz a lista parar de ser lida.
+  // Marcar tira da lista e da geração automática, sem apagar nada.
   const liberar = async (cliente, liberado) => {
     if (liberado) {
       const motivo = window.prompt(
-        `Liberar ${cliente.nome} do carnê?\n\n`
-        + 'Ele sai desta lista e da geração automática. Escreva o motivo (opcional):',
+        `Não gerar carnê para ${cliente.nome}?\n\n`
+        + 'Ele sai desta lista e nunca entra na geração automática. Escreva o motivo (opcional):',
         cliente.motivo || '',
       );
       if (motivo === null) return;
       setOcupado(cliente.id);
       try {
         await api.post('/api/carne/renovacao/liberar', { cliente_id: cliente.id, liberado: true, motivo });
-        setMsg({ ok: true, txt: `${cliente.nome} liberado do carnê.` });
+        setMsg({ ok: true, txt: `${cliente.nome} está fora da geração de carnê.` });
         refetch();
       } catch (e) { setMsg({ ok: false, txt: e.message }); }
       setOcupado(null);
@@ -318,18 +319,25 @@ function AbaRenovacao() {
             </span>
             <span className="carne-meta">
               {c.ultimoVencimento ? `até ${String(c.ultimoVencimento).split('-').reverse().join('/')}` : 'nenhum em aberto'}
-              {c.valorPadrao ? ` · ${fmtMoeda(c.valorPadrao)}` : ''}
+              {c.valorUltimoPago ? ` · último pago ${fmtMoeda(c.valorUltimoPago)}` : ''}
               {c.vencidosEmAberto ? ` · ${c.vencidosEmAberto} vencido(s)` : ''}
             </span>
+            {/* O SGP gera com o valor do CONTRATO, não com o do último carnê.
+                Quando os dois divergem, o dono precisa saber ANTES de gerar. */}
+            {c.valorContrato && c.valorUltimoPago && Math.abs(c.valorContrato - c.valorUltimoPago) >= 0.01 && (
+              <span className="badge badge-bloqueado" title="O SGP gera pelo valor do contrato. Ajuste o contrato no SGP se quiser outro valor.">
+                contrato {fmtMoeda(c.valorContrato)} ≠ último {fmtMoeda(c.valorUltimoPago)}
+              </span>
+            )}
             <div className="page-acoes linha-fim">
               <button
                 type="button"
                 className="btn btn-pequeno"
                 disabled={ocupado === c.id}
-                title="Cortesia, isento ou combinado por fora: some desta lista e do automático"
+                title="Cliente que você não cobra por carnê: some desta lista e nunca entra na geração automática"
                 onClick={() => liberar(c, true)}
               >
-                Liberar
+                Não gerar
               </button>
               <button
                 type="button"
@@ -348,15 +356,15 @@ function AbaRenovacao() {
       {liberados.length > 0 && (
         <Card className="mt-3">
           <div className="card-cab">
-            <span className="card-titulo">Liberados do carnê ({liberados.length})</span>
+            <span className="card-titulo">Fora da geração ({liberados.length})</span>
             <span className="dica linha-fim mt-0">
-              Fora da lista e da geração automática — de propósito.
+              Clientes que você não cobra por carnê — nunca entram na geração automática.
             </span>
           </div>
           {liberados.map(c => (
             <div key={c.id} className="carne-linha">
               <span className="carne-nome">{c.nome}</span>
-              <span className="badge badge-isento">liberado</span>
+              <span className="badge badge-isento">fora da geração</span>
               <span className="carne-meta">
                 {c.motivo || 'sem motivo anotado'}
                 {c.liberado_em ? ` · desde ${fmtDate(c.liberado_em)}` : ''}
@@ -382,13 +390,40 @@ function AbaRenovacao() {
             {previa.resultado?.criadas?.length ? (
               <>
                 <div className="dica mt-0">
-                  Seriam criadas estas mensalidades, no valor do contrato no SGP:
+                  Seriam criadas estas {previa.resultado.criadas.length} mensalidades:
+                </div>
+                <div className="linha g-1 mt-1">
+                  {previa.cliente.valorContrato && (
+                    <span className="badge badge-info">
+                      o SGP vai gerar a {fmtMoeda(previa.cliente.valorContrato)} (valor do contrato)
+                    </span>
+                  )}
+                  {previa.cliente.valorUltimoPago && (
+                    <span className="badge badge-neutro">
+                      último carnê pago: {fmtMoeda(previa.cliente.valorUltimoPago)}
+                    </span>
+                  )}
                 </div>
                 <div className="previa-competencias">
                   {previa.resultado.criadas.map(c => (
                     <span key={c.competencia} className="badge badge-info">{c.competencia}</span>
                   ))}
                 </div>
+                {previa.cliente.valorContrato && previa.cliente.valorUltimoPago
+                  && Math.abs(previa.cliente.valorContrato - previa.cliente.valorUltimoPago) >= 0.01 && (
+                  <div className="aviso aviso-erro mt-3">
+                    <span className="aviso-emoji">💰</span>
+                    <span className="aviso-corpo">
+                      O valor vai sair diferente do último carnê
+                      <span className="aviso-detalhe">
+                        O SGP gera pelo contrato ({fmtMoeda(previa.cliente.valorContrato)}), e o último
+                        pago foi {fmtMoeda(previa.cliente.valorUltimoPago)}. Para gerar no valor certo,
+                        ajuste o plano do contrato no SGP antes.
+                      </span>
+                    </span>
+                  </div>
+                )}
+
                 <div className="aviso aviso-alerta mt-3">
                   <span className="aviso-emoji">⚠️</span>
                   <span className="aviso-corpo">
