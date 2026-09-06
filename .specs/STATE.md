@@ -5,8 +5,9 @@
 
 ## Onde parei
 
-Sessão de 06/09/2026 — **reestruturação do front inteiro** (commit `21eb94f`, ainda **sem
-push**: o dono precisa autorizar o deploy na Vercel).
+Sessão de 06/09/2026 — **reestruturação do front inteiro**, revisada pelo Codex e
+**publicada**: commits `21eb94f` (refactor), `66abb5f` (STATE) e `1fb5f2b` (correção vinda
+da revisão) empurrados para o `main` — a Vercel publica no push.
 
 ### O que mudou
 
@@ -30,6 +31,15 @@ push**: o dono precisa autorizar o deploy na Vercel).
 - Dashboard com grid de 3 colunas fixas e `onAtualizar` indefinido no `PainelRede`
 - Ficha do cliente: dois campos de promessa escrevendo no mesmo estado
 
+### Revisão cruzada (Codex, gpt-5.6)
+
+Achou **uma** regressão real, corrigida em `1fb5f2b`: o guarda de "já abri essa ficha" em
+`VisualizadorBase` era booleano, então a SEGUNDA busca global feita sem sair da base mudava
+a URL e não abria ninguém. Agora o guarda anota qual cliente foi aberto, e fechar a ficha
+tira o `?cliente=` da URL. O Codex procurou e **não** achou: vazamento no singleton SSE,
+cleanup ausente, loop de estado derivado da URL, quebra de contrato com o backend ou furo
+de segurança novo.
+
 ### Como foi conferido
 
 `npm run build` passa (bundle 723 kB), `npm run lint` com 0 erros (18 avisos pré-existentes
@@ -39,11 +49,9 @@ conferência foi com o backend fora do ar.
 
 ## Próximo passo
 
-1. **Autorizar o push** (`gh auth switch --user Everson9` e `git push`) — a Vercel publica
-   no push. O backend não mudou, então a ordem não importa.
-2. Rodar o painel contra a API de verdade e olhar as telas com dado real: tabela da base,
+1. Rodar o painel contra a API de verdade e olhar as telas com dado real: tabela da base,
    ficha do cliente (abas), integração SGP e registros.
-3. `VisualizadorBase.jsx` (417) e `ModalEditarCliente.jsx` (543) ainda passam do piso de 400
+2. `VisualizadorBase.jsx` (423) e `ModalEditarCliente.jsx` (543) ainda passam do piso de 400
    linhas — quebrar antes da próxima funcionalidade, começando pelas abas do modal.
 
 ## Decisões
