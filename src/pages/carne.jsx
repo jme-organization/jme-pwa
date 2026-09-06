@@ -341,6 +341,14 @@ function AbaRenovacao() {
                 contrato {fmtMoeda(c.valorContrato)} ≠ carnê {fmtMoeda(c.valorReferencia)}
               </span>
             )}
+            {/* Plano sem preço no nome ("Plano Ultra") — não dá pra comparar.
+                Dizer isso é melhor que ficar calado: silêncio aqui pareceria
+                "os valores batem". */}
+            {!c.valorContrato && c.valorReferencia && (
+              <span className="badge badge-neutro" title="O plano deste contrato não traz o valor no nome, então não dá pra comparar com o carnê. Confira no SGP antes de gerar.">
+                valor do contrato não informado
+              </span>
+            )}
             <div className="page-acoes linha-fim">
               <button
                 type="button"
