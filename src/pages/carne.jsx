@@ -329,6 +329,10 @@ function AbaRenovacao() {
               {c.ultimoVencimento ? `até ${String(c.ultimoVencimento).split('-').reverse().join('/')}` : 'nenhum em aberto'}
               {c.valorReferencia ? ` · carnê de ${fmtMoeda(c.valorReferencia)}` : ''}
               {c.vencidosEmAberto ? ` · ${c.vencidosEmAberto} vencido(s)` : ''}
+              {/* A forma de cobrança do contrato ajuda a decidir quem nem
+                  precisa de carnê: quem paga por PIX pode ser candidato ao
+                  "Não gerar". Informação, não regra automática. */}
+              {c.formaCobranca ? ` · ${c.formaCobranca}` : ''}
             </span>
             {/* O SGP gera com o valor do CONTRATO, não com o do último carnê.
                 Quando os dois divergem, o dono precisa saber ANTES de gerar. */}
