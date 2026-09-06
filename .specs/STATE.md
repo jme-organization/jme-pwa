@@ -5,7 +5,25 @@
 
 ## Onde parei
 
-Sessão de 06/09/2026 — **reestruturação do front inteiro**, revisada pelo Codex e
+Sessão de 06/09/2026, segunda parte — **duas telas novas** (commit `fafd032`):
+
+- **`/conversas` — Atendimentos.** A caixa de entrada do WhatsApp: lista de conversas com
+  contador de não lidas, thread em balões e resposta manual. Da conversa dá pra abrir a
+  ficha, virar chamado ou marcar resolvida. A tela diz na cara que nada é respondido
+  automaticamente, porque essa é a regra do projeto.
+- **`/carne` — duas abas.** "Renovação" mostra quem está ficando sem boleto; "Conferir e
+  gerar" SIMULA primeiro e mostra as competências que seriam criadas, e só então oferece
+  gerar de verdade, avisando que aquilo escreve no financeiro do SGP. O interruptor do
+  automático exige confirmação para ligar.
+- **Boas-vindas** ganhou "mandar o carnê completo" (ligado por padrão), e o aviso diz
+  quando a segunda mensagem falha.
+- Corrigido no teste de mesa: a pílula de horário virava "undefinedh–undefinedh" quando a
+  rota respondia algo inesperado.
+
+Depende do backend `e0f2cdd` (jme-back), que **ainda não foi publicado na VPS** — até lá as
+telas novas mostram aviso em vez de quebrar.
+
+### Primeira parte da mesma sessão: reestruturação do front inteiro, revisada pelo Codex e
 **publicada**: commits `21eb94f` (refactor), `66abb5f` (STATE) e `1fb5f2b` (correção vinda
 da revisão) empurrados para o `main` — a Vercel publica no push.
 
