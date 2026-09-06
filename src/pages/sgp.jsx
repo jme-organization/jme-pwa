@@ -30,13 +30,19 @@ export function PageSGP() {
     }
   }, []);
 
-  // A conferência roda o sync em modo simulação: devolve o que ele FARIA, sem
-  // escrever nada. É o mesmo cálculo da rodada real, então a lista não mente.
-  const conferir = useCallback(async (silencioso = false) => {
+  // Ao ABRIR a tela: lê o resumo que a última rodada real deixou pronto —
+  // instantâneo. Antes daqui a abertura disparava a sincronização inteira (76
+  // requisições, ~40s), e sair e voltar refazia tudo.
+  //
+  // O botão "Conferir sem aplicar" (`recalcular=1`) continua rodando o cálculo
+  // de verdade: é onde a espera se justifica, porque o dono pediu.
+  const conferir = useCallback(async (recalcular = false) => {
+    const silencioso = !recalcular;
     if (!silencioso) setSincronizando(true);
     setErro(null);
     try {
-      setResumo(await api.get('/api/sgp/divergencias', 120000));
+      const caminho = recalcular ? '/api/sgp/divergencias?recalcular=1' : '/api/sgp/divergencias';
+      setResumo(await api.get(caminho, recalcular ? 120000 : 20000));
     } catch (e) {
       setErro(`Não consegui conferir com o SGP: ${e.message}`);
     } finally {
@@ -47,7 +53,7 @@ export function PageSGP() {
 
   useEffect(() => {
     carregarStatus();
-    conferir(true);
+    conferir(false);
   }, [carregarStatus, conferir]);
 
   const sincronizar = async () => {
@@ -55,7 +61,8 @@ export function PageSGP() {
     setErro(null);
     try {
       await api.post('/api/sgp/sincronizar', {}, 120000);
-      await Promise.all([carregarStatus(), conferir(true)]);
+      // A sincronização real já regravou o resumo — basta reler.
+      await Promise.all([carregarStatus(), conferir(false)]);
       recarregarPlanilha?.();
     } catch (e) {
       setErro(`A sincronização falhou: ${e.message}`);
@@ -73,7 +80,7 @@ export function PageSGP() {
         resumo={resumo}
         sincronizando={sincronizando}
         onSincronizar={sincronizar}
-        onSimular={() => conferir(false)}
+        onSimular={() => conferir(true)}
       />
 
       {erro && <div className="sgp-erro">{erro}</div>}
@@ -84,7 +91,7 @@ export function PageSGP() {
         <>
           <ListaConflitos itens={resumo?.conflitosIdentidade || []} />
           <ListaPendentes itens={resumo?.pendentesDeBaixa || []} />
-          <ListaSuspensos itens={resumo?.suspensos || []} onAplicado={() => conferir(true)} />
+          <ListaSuspensos itens={resumo?.suspensos || []} onAplicado={() => conferir(false)} />
           <ListaDivergencias itens={resumo?.divergencias || []} />
           <ListaSemMatch itens={resumo?.semMatch || []} />
           <ListaCpfDivergente itens={resumo?.cpfDivergente || []} />

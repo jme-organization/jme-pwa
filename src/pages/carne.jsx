@@ -163,7 +163,39 @@ function AbaRenovacao() {
   const [msg, setMsg] = useState(null);
 
   const clientes = data?.clientes || [];
+  const liberados = data?.liberados || [];
   const auto = Boolean(data?.auto);
+
+  // Carnê vazio nem sempre é esquecimento: tem cliente que é cortesia, isento ou
+  // combinou pagar por fora. Liberar tira da lista e da geração automática, sem
+  // apagar nada — dá pra voltar a cobrar depois.
+  const liberar = async (cliente, liberado) => {
+    if (liberado) {
+      const motivo = window.prompt(
+        `Liberar ${cliente.nome} do carnê?\n\n`
+        + 'Ele sai desta lista e da geração automática. Escreva o motivo (opcional):',
+        cliente.motivo || '',
+      );
+      if (motivo === null) return;
+      setOcupado(cliente.id);
+      try {
+        await api.post('/api/carne/renovacao/liberar', { cliente_id: cliente.id, liberado: true, motivo });
+        setMsg({ ok: true, txt: `${cliente.nome} liberado do carnê.` });
+        refetch();
+      } catch (e) { setMsg({ ok: false, txt: e.message }); }
+      setOcupado(null);
+      return;
+    }
+
+    if (!confirm(`Voltar a cobrar carnê de ${cliente.nome}?`)) return;
+    setOcupado(cliente.id);
+    try {
+      await api.post('/api/carne/renovacao/liberar', { cliente_id: cliente.id, liberado: false });
+      setMsg({ ok: true, txt: `${cliente.nome} voltou para a lista.` });
+      refetch();
+    } catch (e) { setMsg({ ok: false, txt: e.message }); }
+    setOcupado(null);
+  };
 
   const alternarAuto = async () => {
     const novo = !auto;
@@ -289,18 +321,58 @@ function AbaRenovacao() {
               {c.valorPadrao ? ` · ${fmtMoeda(c.valorPadrao)}` : ''}
               {c.vencidosEmAberto ? ` · ${c.vencidosEmAberto} vencido(s)` : ''}
             </span>
-            <button
-              type="button"
-              className="btn btn-info btn-pequeno linha-fim"
-              disabled={ocupado === c.id || !c.contrato}
-              title={c.contrato ? 'Ver o que seria criado' : 'Cliente sem contrato do SGP identificado'}
-              onClick={() => conferir(c)}
-            >
-              {ocupado === c.id ? 'Conferindo…' : 'Conferir e gerar'}
-            </button>
+            <div className="page-acoes linha-fim">
+              <button
+                type="button"
+                className="btn btn-pequeno"
+                disabled={ocupado === c.id}
+                title="Cortesia, isento ou combinado por fora: some desta lista e do automático"
+                onClick={() => liberar(c, true)}
+              >
+                Liberar
+              </button>
+              <button
+                type="button"
+                className="btn btn-info btn-pequeno"
+                disabled={ocupado === c.id || !c.contrato}
+                title={c.contrato ? 'Ver o que seria criado' : 'Cliente sem contrato do SGP identificado'}
+                onClick={() => conferir(c)}
+              >
+                {ocupado === c.id ? 'Conferindo…' : 'Conferir e gerar'}
+              </button>
+            </div>
           </div>
         ))}
       </Card>
+
+      {liberados.length > 0 && (
+        <Card className="mt-3">
+          <div className="card-cab">
+            <span className="card-titulo">Liberados do carnê ({liberados.length})</span>
+            <span className="dica linha-fim mt-0">
+              Fora da lista e da geração automática — de propósito.
+            </span>
+          </div>
+          {liberados.map(c => (
+            <div key={c.id} className="carne-linha">
+              <span className="carne-nome">{c.nome}</span>
+              <span className="badge badge-isento">liberado</span>
+              <span className="carne-meta">
+                {c.motivo || 'sem motivo anotado'}
+                {c.liberado_em ? ` · desde ${fmtDate(c.liberado_em)}` : ''}
+              </span>
+              <button
+                type="button"
+                className="btn btn-pequeno linha-fim"
+                disabled={ocupado === c.id}
+                onClick={() => liberar(c, false)}
+              >
+                Voltar a cobrar
+              </button>
+            </div>
+          ))}
+        </Card>
+      )}
 
       {previa && (
         <div className="modal-overlay" onClick={() => setPrevia(null)}>
