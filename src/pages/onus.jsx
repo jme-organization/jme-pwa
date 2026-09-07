@@ -7,7 +7,7 @@
 //
 // O que ela NAO faz: autorizar ONU nova. O SGP bloqueia a rota que lista os
 // tipos de ONU (403), e sem esse id a autorizacao nao monta.
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { Spinner } from '../components/Spinner';
 import { TabelaOnus } from '../components/fttx/TabelaOnus';
@@ -20,6 +20,12 @@ import { Jobs } from '../components/fttx/Jobs';
 const PASSO_JOB_MS = 5000;
 const EM_ANDAMENTO = ['aceito', 'enviado'];
 
+// Quantas vezes reler esperando os nomes dos clientes chegarem. Tem teto porque
+// "carregando" nao significa so "ainda vem": se o SGP estiver recusando, o
+// indice nunca monta e uma releitura a cada 8s viraria marretada eterna nele —
+// com o agravante de ocupar o mesmo portao que a cobranca usa.
+const MAX_ESPERAS_INDICE = 4;
+
 export function PageOnus() {
   const [dados, setDados] = useState(null);
   const [status, setStatus] = useState(null);
@@ -28,6 +34,7 @@ export function PageOnus() {
   const [carregando, setCarregando] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [erro, setErro] = useState(null);
+  const esperasIndice = useRef(0);
 
   const carregar = useCallback(async (fresco = false) => {
     if (fresco) setAtualizando(true);
@@ -56,8 +63,13 @@ export function PageOnus() {
   // o indice em segundo plano). Uma releitura resolve, e so uma: sem isso a tela
   // ficaria com "…" na coluna de cliente ate alguem clicar em atualizar.
   useEffect(() => {
-    if (!dados?.resumo?.carregando) return undefined;
-    const t = setTimeout(() => carregar(true), 8000);
+    if (!dados?.resumo?.carregando) { esperasIndice.current = 0; return undefined; }
+    if (esperasIndice.current >= MAX_ESPERAS_INDICE) return undefined;
+
+    const t = setTimeout(() => {
+      esperasIndice.current += 1;
+      carregar(true);
+    }, 8000);
     return () => clearTimeout(t);
   }, [dados, carregar]);
 
