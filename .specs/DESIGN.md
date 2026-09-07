@@ -130,6 +130,46 @@ deslize da sidebar. `prefers-reduced-motion` zera tudo. Painel operacional não 
 - **≤ 620px:** as duas janelas de horário saem da topbar (são configuração, não operação de
   rua) para a busca caber. O estado do bot fica, como ponto colorido.
 
+## Sinal óptico da ONU (07/09/2026)
+
+A tela de ONUs mostra o sinal que a OLT reporta (`info_rx`, em dBm). É o único número do
+painel que **não é dinheiro nem estado de cliente**, e por isso precisou de vocabulário
+próprio — reaproveitar `.badge-pago` para "sinal bom" quebraria o significado fixo da cor
+(verde é dinheiro que entrou).
+
+| Classe | Faixa | Cor | O que quer dizer |
+|---|---|---|---|
+| `.sinal-ok` | acima de −25 dBm | `--green` | dentro do normal |
+| `.sinal-atencao` | −25 a −28 dBm | `--amber` | ainda funciona, mas piorou |
+| `.sinal-critico` | abaixo de −28 dBm | `--red` | cliente cai ou vai cair |
+| `.sinal-sem` | sem leitura | `--text-muted` | a OLT não reportou (13 das 414) |
+
+As faixas são as de referência de GPON, não invenção nossa: a potência de recepção saudável
+de uma ONU fica entre −8 e −25 dBm, e abaixo de −28 o enlace começa a errar quadro.
+
+O número aparece **sempre com a unidade** (`-19.9 dBm`), em `.td-mono`, porque a coluna é
+comparada de cima a baixo — e "19,9" sem sinal e sem unidade se lê como qualquer coisa.
+
+**Sem leitura não é zero.** ONU sem `info_rx` mostra `—`, nunca `0.0 dBm`: zero é um valor
+ótimo de sinal e diria exatamente o contrário do que aconteceu.
+
+## Estado do cliente na linha da ONU (07/09/2026)
+
+Nem toda ONU tem dono conhecido. A tela diz **qual** dos casos é, em vez de deixar a célula
+vazia, porque numa tela de onde se derruba cliente a diferença importa:
+
+| Estado | Como aparece |
+|---|---|
+| `casado` | o nome do cliente |
+| `sem_login` | `—` em `.td-muted` (Bridge, ou PPPoE sem login: 241 das 414) |
+| `carregando` | `…` enquanto o índice de nomes é montado (leva ~30s no primeiro acesso) |
+| `ambiguo` | `.badge-neutro` "login ambíguo" — dois clientes com o mesmo login no SGP |
+| `duplicado` | `.badge-neutro` "login em 2 ONUs" |
+| `desconhecido` | `.badge-neutro` "sem cadastro" |
+
+**Nunca escolher um nome quando há dúvida.** Nome errado numa tela de operação é pior que
+nome nenhum: o dono desautorizaria o cliente certo pelo motivo errado.
+
 ## O que ficou de fora, de propósito
 
 - **Tela "Ao Vivo" (`/estados`)** — era um texto fixo dizendo que o atendimento automático

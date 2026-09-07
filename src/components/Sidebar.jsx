@@ -10,7 +10,7 @@ import {
   FiGrid, FiSmartphone, FiTool, FiCalendar, FiMessageCircle,
   FiSend, FiAlertTriangle, FiClock, FiBookOpen, FiRefreshCw,
   FiUsers, FiTruck, FiMessageSquare, FiUserX,
-  FiFileText, FiChevronsLeft, FiChevronsRight,
+  FiFileText, FiChevronsLeft, FiChevronsRight, FiWifi,
 } from 'react-icons/fi';
 
 export const GRUPOS = [
@@ -22,6 +22,7 @@ export const GRUPOS = [
       { to: '/qr', rotulo: 'WhatsApp', Icone: FiSmartphone },
       { to: '/chamados', rotulo: 'Chamados', Icone: FiTool, contagem: 'chamadosAbertos' },
       { to: '/agendamentos', rotulo: 'Agendamentos', Icone: FiCalendar },
+      { to: '/onus', rotulo: 'ONUs', Icone: FiWifi },
     ],
   },
   {

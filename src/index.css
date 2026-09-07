@@ -1870,3 +1870,85 @@ textarea.entrada { resize: vertical; min-height: 92px; }
 .nao-quebra { flex-wrap: nowrap; }
 .opcoes-coluna { flex-direction: column; }
 .card-cab-bloco { display: block; }
+
+/* =====================================================
+   ONUs (FTTH) — 07/09/2026
+   Vocabulario descrito em .specs/DESIGN.md.
+   O sinal optico e o unico numero do painel que nao e dinheiro nem estado de
+   cliente: reaproveitar a cor de "pago" pra "sinal bom" quebraria o significado
+   fixo da paleta.
+   ===================================================== */
+
+.sinal            { font-weight: 700; white-space: nowrap; }
+.sinal-ok         { color: var(--green); }
+.sinal-atencao    { color: var(--amber); }
+.sinal-critico    { color: var(--red); }
+.sinal-sem        { color: var(--text-muted); font-weight: 600; }
+
+/* Barra de filtro da tela: busca larga + contadores a direita. */
+.onu-barra {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 14px;
+}
+.onu-busca { flex: 1 1 260px; min-width: 200px; }
+
+.onu-contagem {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+/* A confirmacao digitada do desautorizar. Fica dentro do card da ONU escolhida,
+   nao num modal: o dono precisa ver de qual ONU se trata enquanto digita. */
+.onu-confirma {
+    border: 1px solid var(--red-bd);
+    background: var(--red-bg);
+    border-radius: 10px;
+    padding: 14px;
+    margin-top: 14px;
+}
+.onu-confirma-alvo {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+.onu-confirma-linha { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.onu-confirma-campo { flex: 0 1 200px; }
+
+/* Um job em andamento ou terminado. */
+.onu-job {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-secondary);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+.onu-job + .onu-job { margin-top: 8px; }
+.onu-job-msg { color: var(--text-secondary); font-size: 13px; font-weight: 600; }
+
+@media (max-width: 760px) {
+    .onu-barra { gap: 8px; }
+    .onu-contagem { font-size: 12px; }
+}
+
+/* Linha escolhida na tabela: a tela de ONUs tem 414 linhas e um painel de acao
+   acima da tabela — sem marcar a linha, o dono perde de vista sobre qual ONU o
+   painel esta falando depois de rolar. */
+.tabela tbody tr.linha-ativa,
+.tabela tbody tr.linha-ativa:hover {
+    background: var(--bg-ativo);
+    box-shadow: inset 3px 0 0 var(--blue);
+}

@@ -22,6 +22,7 @@ import { PageConversas } from './pages/conversas';
 import { PageLogs } from './pages/logs';
 import { PageCobranca } from './pages/cobranca';
 import { PageSGP } from './pages/sgp';
+import { PageOnus } from './pages/onus';
 import { PageNovos } from './pages/novos';
 import { PageInadimplentes } from './pages/inadimplentes';
 import { PageAgendamentos } from './pages/agendamentos';
@@ -100,6 +101,7 @@ function AppContent() {
                 <Route path="/logs" element={<PageLogs />} />
                 <Route path="/cobranca" element={<PageCobranca />} />
                 <Route path="/sgp" element={<PageSGP />} />
+              <Route path="/onus" element={<PageOnus />} />
                 <Route path="/novos" element={<PageNovos />} />
                 <Route path="/cancelamentos" element={<PageCancelamentos />} />
                 <Route path="/inadimplentes" element={<PageInadimplentes />} />
