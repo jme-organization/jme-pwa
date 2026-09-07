@@ -5,6 +5,51 @@
 
 ## Onde parei
 
+**07/09/2026 (noite) — tela nova `/onus`, publicada (`f5ef1dc`), mas ainda não vista renderizada.**
+
+A fibra dos clientes entrou no painel: as 414 ONUs da OLT com sinal óptico, PON, modo e o cliente
+casado pelo login PPPoE, mais os botões de reiniciar e desautorizar. Fica em **Operação → ONUs**.
+
+Arquivos: `src/pages/onus.jsx` (orquestra) e `src/components/fttx/` — `TabelaOnus`, `PainelOnu`,
+`NaoAutorizadas`, `Jobs` e `sinal.jsx`. Nenhum passa de 400 linhas, como manda o CONVENTIONS.
+
+### O que precisa ser conferido a olho (pendência aberta)
+
+O `agent-browser` não subiu nesta máquina — nem `doctor --offline --quick` respondeu. O bundle
+publicado **contém** o código novo (conferido buscando `Procurar ONU nova` e `sinal-critico` no
+JS servido pelo Vercel), mas ninguém viu a tela desenhada. Olhar:
+
+- a tabela com as 414 linhas e a busca por nome/login/serial/PON;
+- a coluna de sinal colorida (verde acima de −25 dBm, âmbar até −28, vermelho abaixo);
+- o badge "login em 2 ONUs" nas quatro linhas de `josefadasilva` e `martins`;
+- o aviso de escrita desligada dentro do card da ONU escolhida;
+- e o vazio de "Procurar ONU nova", que hoje é o estado real (nenhuma ONU esperando).
+
+### Vocabulário novo no DESIGN.md (entrou antes do código, como manda a casa)
+
+Duas seções: **sinal óptico** (`.sinal-ok/-atencao/-critico/-sem`, faixas de referência de GPON)
+e **estado do cliente na linha da ONU**. O motivo de não reaproveitar `.badge-pago` para "sinal
+bom" está escrito lá: verde é dinheiro que entrou, e sinal não é dinheiro. Também entrou
+`.linha-ativa`, porque a tabela tem 414 linhas e o painel de ação fica acima dela.
+
+### O que a tela deliberadamente NÃO faz
+
+**Autorizar ONU.** O SGP responde 403 na rota que lista os tipos de ONU, e sem esse id a
+autorização não monta. A tela **diz isso** na janela de não autorizadas em vez de esconder o
+botão e deixar o dono procurando.
+
+### Depende do backend
+
+A escrita só funciona com `FTTX_ESCRITA_HABILITADA=true` no `jme-back`, que nasce desligada. Com
+ela desligada a tela mostra o aviso e esconde os botões — é o estado de hoje, e é o certo até a
+sessão de teste com o dono.
+
+---
+
+## Sessão anterior
+
+
+
 Sessão de 06/09/2026, segunda parte — **duas telas novas** (commit `fafd032`):
 
 - **`/conversas` — Atendimentos.** A caixa de entrada do WhatsApp: lista de conversas com
