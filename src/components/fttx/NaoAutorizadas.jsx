@@ -6,8 +6,10 @@
 // candidato a ser justamente uma das causas da lentidao que motivou esta tela.
 import React, { useState } from 'react';
 import { api } from '../../api/client';
+import { FormAutorizar } from './FormAutorizar';
 
-export function NaoAutorizadas() {
+export function NaoAutorizadas({ escritaHabilitada, onAutorizar, ocupado }) {
+  const [escolhida, setEscolhida] = useState(null);
   const [lista, setLista] = useState(null);
   const [buscando, setBuscando] = useState(false);
   const [erro, setErro] = useState(null);
@@ -16,6 +18,7 @@ export function NaoAutorizadas() {
   const procurar = async () => {
     setBuscando(true);
     setErro(null);
+    setEscolhida(null);
     try {
       // 30s de teto: a chamada leva ~13s e o padrao do cliente e 10s.
       const r = await api.post('/api/fttx/nao-autorizadas', {}, 30000);
@@ -65,7 +68,11 @@ export function NaoAutorizadas() {
             </thead>
             <tbody>
               {lista.map((o, i) => (
-                <tr key={o.phy_addr || i}>
+                <tr
+                  key={o.phy_addr || i}
+                  className={escritaHabilitada ? 'linha-clicavel' : undefined}
+                  onClick={() => escritaHabilitada && setEscolhida(o)}
+                >
                   <td className="td-mono">{o.phy_addr || o.phyAddr || '—'}</td>
                   <td className="td-centro td-mono">{o.slot ?? '—'}</td>
                   <td className="td-centro td-mono">{o.pon ?? '—'}</td>
@@ -75,10 +82,19 @@ export function NaoAutorizadas() {
             </tbody>
           </table>
           <div className="dica mt-1">
-            Autorizar pelo painel ainda não está disponível: o SGP bloqueia a rota que lista
-            os tipos de ONU. Por enquanto, suba pela tela dele.
+            {escritaHabilitada
+              ? 'Clique na linha da ONU para subir.'
+              : 'A operação de ONU está desligada no servidor — só dá para consultar.'}
           </div>
         </div>
+      )}
+      {escolhida && (
+        <FormAutorizar
+          onu={escolhida}
+          ocupado={ocupado}
+          onCancelar={() => setEscolhida(null)}
+          onAutorizar={(dados) => { onAutorizar(dados); setEscolhida(null); }}
+        />
       )}
     </div>
   );

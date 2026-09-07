@@ -111,6 +111,19 @@ export function PageOnus() {
     }
   };
 
+  const autorizar = async (dados) => {
+    setErro(null);
+    try {
+      const r = await api.post('/api/fttx/autorizar', {
+        ...dados,
+        chave: `autorizar:${dados.serial}:${Date.now()}`,
+      }, 30000);
+      setJobs(atual => [r.job, ...atual.filter(j => j.id !== r.job.id)].slice(0, 10));
+    } catch (e) {
+      setErro(e.message);
+    }
+  };
+
   const ocupado = jobs.some(j => EM_ANDAMENTO.includes(j.estado));
 
   return (
@@ -133,7 +146,11 @@ export function PageOnus() {
         </div>
       )}
 
-      <NaoAutorizadas />
+      <NaoAutorizadas
+        escritaHabilitada={Boolean(status?.escritaHabilitada)}
+        ocupado={ocupado}
+        onAutorizar={autorizar}
+      />
 
       <Jobs jobs={jobs} />
 

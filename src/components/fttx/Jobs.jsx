@@ -18,7 +18,7 @@ const ESTADOS = {
   indeterminado: { rotulo: 'Indeterminado',  badge: 'badge-bloqueado' },
 };
 
-const COMANDOS = { desautorizar: 'Desautorizar', resetar: 'Reiniciar' };
+const COMANDOS = { desautorizar: 'Desautorizar', resetar: 'Reiniciar', autorizar: 'Subir ONU' };
 
 export function Jobs({ jobs }) {
   if (!jobs?.length) return null;
