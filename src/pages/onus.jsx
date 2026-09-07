@@ -101,9 +101,10 @@ export function PageOnus() {
         onuId: onu.id,
         phyAddr: onu.phy_addr,
         confirmacao,
-        // A chave de idempotencia e o que impede o duplo clique (e o retry do
-        // navegador) de virarem dois comandos na OLT.
-        chave: `${comando}:${onu.id}:${Date.now()}`,
+        // A chave de idempotencia precisa ser ESTAVEL pro mesmo pedido: com
+        // Date.now() dentro dela, cada clique inventaria uma chave nova e a
+        // protecao contra duplo clique nunca valeria de nada.
+        chave: `${comando}:${onu.id}:${onu.phy_addr}`,
       }, 30000);
       setJobs(atual => [r.job, ...atual.filter(j => j.id !== r.job.id)].slice(0, 10));
     } catch (e) {
@@ -116,7 +117,7 @@ export function PageOnus() {
     try {
       const r = await api.post('/api/fttx/autorizar', {
         ...dados,
-        chave: `autorizar:${dados.serial}:${Date.now()}`,
+        chave: `autorizar:${dados.serial}`,
       }, 30000);
       setJobs(atual => [r.job, ...atual.filter(j => j.id !== r.job.id)].slice(0, 10));
     } catch (e) {
