@@ -15,9 +15,10 @@ Arquivos: `src/pages/onus.jsx` (orquestra) e `src/components/fttx/` — `TabelaO
 
 ### O que precisa ser conferido a olho (pendência aberta)
 
-O `agent-browser` não subiu nesta máquina — nem `doctor --offline --quick` respondeu. O bundle
-publicado **contém** o código novo (conferido buscando `Procurar ONU nova` e `sinal-critico` no
-JS servido pelo Vercel), mas ninguém viu a tela desenhada. Olhar:
+O bundle publicado **contém** o código novo (conferido buscando `Procurar ONU nova` e
+`sinal-critico` no JS servido pelo Vercel), mas ninguém viu a tela desenhada: as duas tentativas
+com `agent-browser` foram **mortas por falta de memória na máquina**, não por defeito da
+ferramenta. Repetir com menos coisa aberta — ou simplesmente abrir o painel no navegador. Olhar:
 
 - a tabela com as 414 linhas e a busca por nome/login/serial/PON;
 - a coluna de sinal colorida (verde acima de −25 dBm, âmbar até −28, vermelho abaixo);
