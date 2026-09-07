@@ -73,8 +73,33 @@ const comCorpo = (metodo) => (url, body, ms) => comTimeout(
     ms,
 );
 
+// Arquivo binario de rota autenticada (hoje: a midia do atendimento).
+//
+// `<img src>` e `<audio src>` NAO mandam header Authorization — foi o mesmo
+// problema do QR, que por isso vivia numa <img src="/qr?k=CHAVE"> com a chave
+// de admin no bundle. Aqui o arquivo e buscado com o Bearer e a tela usa
+// URL.createObjectURL no blob.
+//
+// 410 tem significado proprio: a midia foi apagada pela retencao de 180 dias e
+// a mensagem continua valendo. Quem chama desenha "(expirado)", nao um erro.
+async function paraBlob(resp) {
+    if (resp.status === 401) {
+        setToken(null);
+        avisarSessaoExpirada();
+        throw new Error('Sessão expirada. Entre de novo.');
+    }
+    if (resp.status === 410) {
+        const e = new Error('Mídia expirada');
+        e.expirada = true;
+        throw e;
+    }
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+    return resp.blob();
+}
+
 export const api = {
     get:    (url, ms)       => comTimeout((signal) => fetch(API + url, { headers: headers(), signal }).then(check), ms),
+    blob:   (url, ms)       => comTimeout((signal) => fetch(API + url, { headers: headers(), signal }).then(paraBlob), ms),
     post:   comCorpo('POST'),
     put:    comCorpo('PUT'),
     delete: (url, ms)       => comTimeout((signal) => fetch(API + url, { method: 'DELETE', headers: headers(), signal }).then(check), ms),

@@ -97,6 +97,13 @@ O `index.css` é dividido em seções numeradas. O que existe:
   `-erro`, `-info`), `.spinner`.
 - **Espaçamento:** `.mt-1..4` / `.mb-1..4` (6, 10, 14, 20px) e `.mt-0`. Margem nova usa a
   escala; não volta a virar `style={{ marginTop: 13 }}`.
+- **Mídia no balão (06/09/2026):** `.balao-midia` (envelope clicável), `.balao-img`
+  (imagem recebida) e `.balao-audio` (player). A imagem tem **teto de 320px de altura**
+  porque o balão vive numa coluna rolável — foto de celular em pé empurraria a conversa
+  inteira pra fora da tela, e o dono perderia o fio da leitura. O áudio ocupa a largura
+  do balão: o player nativo encolhe sozinho até o botão de play ficar difícil de acertar
+  no celular, que é justamente onde esta tela é usada na rua. Enquanto o arquivo carrega,
+  falha ou expira, o balão volta pra `.balao-anexo` — a etiqueta de texto que já existia.
 
 ## Estado de componente
 

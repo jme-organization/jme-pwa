@@ -10,6 +10,7 @@ import { useSSEData } from '../hooks/useSSEData';
 import { Card } from '../components/Card';
 import { Spinner } from '../components/Spinner';
 import { BadgeCliente } from '../components/BadgeCliente';
+import { AnexoMensagem } from '../components/AnexoMensagem';
 import { fmtDate, fmtTel, paraData } from '../utils/formatadores';
 import { api } from '../api/client';
 
@@ -260,7 +261,11 @@ export function PageConversas() {
                   <div className="vazio vazio-curto">Nenhuma mensagem registrada</div>
                 ) : mensagens.map(m => (
                   <div key={m.id} className={`balao ${m.direcao === 'saida' ? 'balao-saida' : 'balao-entrada'}`}>
-                    {m.texto ? <span className="balao-texto">{m.texto}</span> : <span className="balao-anexo">📎 {m.tipo}</span>}
+                    {/* Imagem com legenda tem os dois: a legenda é o texto. */}
+                    {m.texto ? <span className="balao-texto">{m.texto}</span> : null}
+                    {m.midia_id
+                      ? <AnexoMensagem numero={conversaAtual.numero} mensagem={m} />
+                      : (!m.texto && <span className="balao-anexo">📎 {m.tipo}</span>)}
                     <span className="balao-hora">{fmtDate(m.criado_em)}</span>
                   </div>
                 ))}
