@@ -92,10 +92,12 @@ export function Diagnostico({ onu }) {
 
           {h?.pontos?.length > 1 && (
             <div className="card-pad mt-2">
-              <div className="secao-rotulo">
-                Sinal nas últimas {h.pontos.length} medições
-                {h.tendencia?.piorando && <span className="badge badge-inadimplente" style={{ marginLeft: 8 }}>piorando {h.tendencia.delta} dB</span>}
-                {h.tendencia?.melhorando && <span className="badge badge-pago" style={{ marginLeft: 8 }}>melhorou {h.tendencia.delta} dB</span>}
+              {/* `.onu-barra` ja e flex com gap — evita px fixo em style inline,
+                  que o CONVENTIONS.md proibe. */}
+              <div className="onu-barra">
+                <span className="secao-rotulo">Sinal nas últimas {h.pontos.length} medições</span>
+                {h.tendencia?.piorando && <span className="badge badge-inadimplente">piorando {h.tendencia.delta} dB</span>}
+                {h.tendencia?.melhorando && <span className="badge badge-pago">melhorou {h.tendencia.delta} dB</span>}
               </div>
               <ResponsiveContainer width="100%" height={140}>
                 <LineChart data={h.pontos} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
