@@ -12,7 +12,7 @@ import React, { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { api } from '../../api/client';
 import { useCorTokens } from '../../hooks/useCorTokens';
-import { classeDoSinal } from './sinal';
+import { Sinal } from './sinal';
 
 // O que fazer com a informacao — e o que muda a decisao do dono.
 const ACAO = {
@@ -134,7 +134,11 @@ export function Diagnostico({ onu }) {
             <button className="btn btn-fantasma btn-pequeno" onClick={consultar} disabled={carregando}>
               Consultar de novo
             </button>
-            <span className={`sinal ${classeDoSinal(d.rx)}`}>agora: {d.rx} dBm</span>
+            {/* `<Sinal>` mostra "—" quando nao ha leitura. Escrever {d.rx} direto
+                faria a ONU OFFLINE dizer "null dBm" — ou, pior, "0 dBm", que e o
+                melhor sinal possivel. */}
+            <span className="onu-contagem">agora:</span>
+            <Sinal rx={d.rx} />
           </div>
         </>
       )}
