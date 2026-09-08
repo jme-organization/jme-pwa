@@ -6,6 +6,7 @@
 // que isso evita e clicar na linha vizinha numa tabela de 414.
 import React, { useState } from 'react';
 import { Sinal, CelulaCliente } from './sinal';
+import { Diagnostico } from './Diagnostico';
 
 export function PainelOnu({ onu, escritaHabilitada, onOperar, ocupado }) {
   const [confirmando, setConfirmando] = useState(false);
@@ -41,6 +42,10 @@ export function PainelOnu({ onu, escritaHabilitada, onOperar, ocupado }) {
         {onu.login && <span className="onu-contagem">login {onu.login}</span>}
         {onu.description && <span className="onu-contagem td-corta">{onu.description}</span>}
       </div>
+
+      {/* O diagnostico e leitura: aparece mesmo com a escrita desligada, porque
+          saber por que o cliente caiu nao depende de poder mexer na ONU. */}
+      <Diagnostico onu={onu} key={onu.id} />
 
       {!escritaHabilitada && (
         <div className="aviso aviso-info mt-2">
