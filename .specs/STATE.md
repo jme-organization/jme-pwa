@@ -5,6 +5,48 @@
 
 ## Onde parei
 
+**07/09/2026 (madrugada) — a tela `/onus` ficou completa e o dono já usou.**
+
+Ele abriu, conferiu e aprovou o essencial ("marca o dBm, o modo, a PON, o serial"), e apontou
+quatro defeitos olhando o diagnóstico de um cliente real. Os quatro estão corrigidos:
+
+1. **"Precisa de técnico" para ONU que estava bem.** A recomendação vinha só do código da
+   causa, ignorando que a ONU estava online, com sinal bom, e que a queda tinha durado 39
+   segundos horas antes. Agora a recomendação olha o estado atual e vem ANTES da causa na tela.
+2. **O eixo do gráfico cortava o sinal de menos**: `-23.2` aparecia como `3.2`, que se lê como
+   sinal positivo — o oposto. Largura 56px e casa decimal fixa.
+3. **As linhas de −25/−28 só aparecem quando cabem** no domínio; antes a legenda afirmava que
+   estavam lá enquanto ficavam fora da vista.
+4. **"há 0 dias, 6 h, 29 min"** virou "há 6 h", e a temperatura deixou de ser metadado solto:
+   acima de 50 °C vira badge de atenção, acima de 60 °C vira alerta.
+
+### Componentes da tela
+
+`src/pages/onus.jsx` orquestra; `src/components/fttx/` tem `TabelaOnus`, `PainelOnu`,
+`NaoAutorizadas`, `FormAutorizar`, `Diagnostico`, `Jobs` e `sinal.jsx`. Nenhum passa de 400
+linhas, como manda o CONVENTIONS.
+
+### Vocabulário que entrou no DESIGN.md (antes do código, como manda a casa)
+
+**Sinal óptico** (`.sinal-ok/-atencao/-critico/-sem`, faixas de referência de GPON) e **estado
+do cliente na linha da ONU**. O motivo de não reaproveitar `.badge-pago` para "sinal bom" está
+escrito lá: verde é dinheiro que entrou, e sinal não é dinheiro. Também entrou `.linha-ativa`.
+
+### O que a tela deliberadamente não faz
+
+- **Trocar wifi**: nenhuma das 414 ONUs tem wifi cadastrado no SGP (`wifi_ssid` vazio em 414 de
+  414). Elas são Bridge/PPPoE e o wifi vive no roteador do cliente.
+- **Ação em lote**: multiplica o estrago de um clique errado.
+
+### Depende do backend
+
+A escrita só aparece com `FTTX_ESCRITA_HABILITADA=true` no `jme-back` — hoje **ligada**. Com ela
+desligada a tela mostra o aviso e esconde os botões.
+
+---
+
+## Sessão anterior (07/09, primeira metade)
+
 **07/09/2026 (noite) — tela nova `/onus`, publicada (`f5ef1dc`), mas ainda não vista renderizada.**
 
 A fibra dos clientes entrou no painel: as 414 ONUs da OLT com sinal óptico, PON, modo e o cliente
