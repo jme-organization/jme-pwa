@@ -5,10 +5,11 @@
 
 ## Onde parei
 
-**21/09/2026 — aba Vencidas e botão Avisar na tela de Promessas. Pronto, NÃO deployado.**
+**21/09/2026 — aba Vencidas e botão Avisar na tela de Promessas. NO AR.**
 
-O painel só sobe **depois** do `jme-back`: a tela passa a chamar `POST /api/promessas/:id/cobrar`,
-que é rota nova. Plano completo em `../jme-back/.specs/planos/aviso-promessa-quebrada.md`.
+Painel `c0cb711` na Vercel, backend `8037f6e` na VPS (subiu primeiro, porque a tela chama
+`POST /api/promessas/:id/cobrar`, que é rota nova). Conferido: o bundle servido contém "Vencidas"
+e "Avisar de novo". Plano completo em `../jme-back/.specs/planos/aviso-promessa-quebrada.md`.
 
 `src/pages/promessas.jsx`, só ele. Nenhuma classe nova no `index.css` — tudo saiu do vocabulário que
 já existia (`.badge-vencida`, `.btn-roxo`, `.badge-promessa`, `.vazio-dica`).
@@ -31,8 +32,8 @@ já existia (`.badge-vencida`, `.btn-roxo`, `.badge-promessa`, `.vazio-dica`).
   se divergir, pra uma mudança na base entre carregar a lista e clicar não virar boleto pro cliente
   errado. Quando o cliente está `pago`, o diálogo avisa em caixa alta antes de enviar.
 
-`npx eslint` limpo e `vite build` passando. **Não conferido em navegador** — falta abrir a tela com
-o backend novo no ar.
+`npx eslint` limpo e `vite build` passando. **Não conferido em navegador** — abrir a tela de
+Promessas, aba Vencidas, e olhar o botão Avisar com dado real é o que falta.
 
 ---
 
