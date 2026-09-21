@@ -5,6 +5,40 @@
 
 ## Onde parei
 
+**21/09/2026 — aba Vencidas e botão Avisar na tela de Promessas. Pronto, NÃO deployado.**
+
+O painel só sobe **depois** do `jme-back`: a tela passa a chamar `POST /api/promessas/:id/cobrar`,
+que é rota nova. Plano completo em `../jme-back/.specs/planos/aviso-promessa-quebrada.md`.
+
+`src/pages/promessas.jsx`, só ele. Nenhuma classe nova no `index.css` — tudo saiu do vocabulário que
+já existia (`.badge-vencida`, `.btn-roxo`, `.badge-promessa`, `.vazio-dica`).
+
+- **Filtro "Vencidas"** entre Pendentes e Pagas. Ele não existia, e por isso as promessas com status
+  `vencida` no banco **não apareciam em tela nenhuma** — venciam no silêncio.
+- **`BADGE`/`ROTULO` para `vencida`.** Antes caía no fallback e a tela dizia "Pendente", errado.
+- **Coluna "Na base"** com o status atual do cliente. Existe porque dar baixa no SGP não quer dizer
+  que o cliente pagou — o dono às vezes dá baixa só pra tirar suspensão de quem está derrubando.
+  Quando o nome da promessa difere do nome do cliente resolvido, os dois aparecem.
+- **Botão 📣 Avisar** (roxo, cor de promessa no `DESIGN.md`), só em `vencida`. Vira "Avisar de novo"
+  com a data do último aviso. **Desabilitado quando o backend não resolve o cliente**, com o motivo
+  no `title`.
+- **Pagou e Cancelar passam a aparecer em `vencida`** também — antes só em `pendente`, e sem isso a
+  promessa vencida não teria como sair da lista.
+- **`api.post` do Avisar leva `60000` explícito.** O aviso busca o título no SGP, manda a mensagem,
+  espera 3s e manda as chaves PIX: nos 10s padrão do `client.js` a tela mostraria "o servidor
+  demorou demais" com a mensagem **já entregue** — o mesmo engano que a baixa dava antes de 08/09.
+- **A confirmação manda o `cliente_id` que a tela mostrou.** O servidor re-resolve e recusa com 409
+  se divergir, pra uma mudança na base entre carregar a lista e clicar não virar boleto pro cliente
+  errado. Quando o cliente está `pago`, o diálogo avisa em caixa alta antes de enviar.
+
+`npx eslint` limpo e `vite build` passando. **Não conferido em navegador** — falta abrir a tela com
+o backend novo no ar.
+
+---
+
+
+## Sessão de 07/09/2026 — tela /onus
+
 **07/09/2026 (madrugada) — a tela `/onus` ficou completa e o dono já usou.**
 
 Ele abriu, conferiu e aprovou o essencial ("marca o dBm, o modo, a PON, o serial"), e apontou
